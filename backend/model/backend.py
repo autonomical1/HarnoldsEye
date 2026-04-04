@@ -12,6 +12,38 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 
+
+def _patch_huggingface_hub_logging_export() -> None:
+    """
+    huggingface_hub 1.9.x lists `logging` in lazy exports as coming from `utils` but
+    `huggingface_hub/utils/__init__.py` does not re-export the `logging` submodule, so
+    `from huggingface_hub import logging` fails and breaks transformers. Patch before
+    any `transformers` / `sentence_transformers` import.
+    """
+    import importlib
+
+    try:
+        import huggingface_hub.utils as hf_utils
+    except Exception:
+        return
+    if getattr(hf_utils, "logging", None) is not None:
+        return
+    try:
+        mod = importlib.import_module("huggingface_hub.utils.logging")
+    except Exception:
+        return
+    hf_utils.logging = mod  # type: ignore[attr-defined]
+    try:
+        import huggingface_hub as hh
+
+        if getattr(hh, "logging", None) is None:
+            hh.logging = mod  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
+_patch_huggingface_hub_logging_export()
+
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ============================================================================
@@ -1049,21 +1081,23 @@ def _expand_findings_with_call_sites(
                 continue
             seen_call.add(key)
             vtype = (f.get("vulnerability_type") or f.get("matched_category") or "").strip()
-            out.append(
-                {
-                    "file_path": fp,
-                    "line_start": ln_1,
-                    "line_end": ln_1,
-                    "code": (line_text or "").strip()[:200],
-                    "matched_category": f.get("matched_category", ""),
-                    "similarity_score": float(f.get("similarity_score") or 0.0),
-                    "vulnerability_type": vtype or f.get("matched_category", "unspecified"),
-                    "finding_role": "call_site",
-                    "sink_line_start": ls,
-                    "sink_line_end": le,
-                    "sink_function": sink_name,
-                }
-            )
+            call_row: Dict[str, Any] = {
+                "file_path": fp,
+                "line_start": ln_1,
+                "line_end": ln_1,
+                "code": (line_text or "").strip()[:200],
+                "matched_category": f.get("matched_category", ""),
+                "similarity_score": float(f.get("similarity_score") or 0.0),
+                "vulnerability_type": vtype or f.get("matched_category", "unspecified"),
+                "finding_role": "call_site",
+                "sink_line_start": ls,
+                "sink_line_end": le,
+                "sink_function": sink_name,
+            }
+            te = f.get("type_explanation")
+            if isinstance(te, str) and te.strip():
+                call_row["type_explanation"] = te.strip()[:600]
+            out.append(call_row)
     return out
 
 
@@ -1196,6 +1230,7 @@ Required shape:
 - "vulnerable": boolean
 - "line_numbers": array of [start_line, end_line] pairs (inclusive), using **1-based line numbers in the real source file** exactly as the user message states for the excerpt (not line numbers inside the fenced code block).
 - "vulnerability_type": short string when vulnerable is true — name the **primary defect by mechanism**, not by the most familiar keyword in the snippet.
+- "type_explanation": when vulnerable is true, **one or two short sentences** in plain English: what this vulnerability **category** means for C/C++ in general, and what **concrete failure or attacker impact** the shown code enables. No bullet points; no JSON inside the string. Use "" when vulnerable is false.
 
 **Classification (pick the best single label for the main bug):**
 - Memory safety: "heap_buffer_overflow", "stack_buffer_overflow", "out_of_bounds_read", "out_of_bounds_write", "use_after_free", "double_free", "uninitialized_read", "null_pointer_dereference".
@@ -1205,8 +1240,8 @@ Required shape:
 
 **Rules:** If the bug is **integer wrap / bad size** leading to a bad alloc or copy, label **integer_overflow** or **integer_underflow**, not "stack_buffer_overflow". If the bug is **use after free** or **double free**, use those labels even if memcpy/strcpy appears nearby. If **printf/scanf** trusts non-terminated or attacker-controlled strings, prefer **format_string** or **out_of_bounds_read** as appropriate. Do **not** default to "stack_buffer_overflow" when the failure mode is heap, lifetime, arithmetic, format, or injection. Use "" when vulnerable is false.
 
-If there is no genuine security issue: {"vulnerable": false, "line_numbers": [], "vulnerability_type": ""}.
-If there is: {"vulnerable": true, "line_numbers": [[a,b], ...], "vulnerability_type": "..."} with the **smallest** spans that pinpoint the flaw."""
+If there is no genuine security issue: {"vulnerable": false, "line_numbers": [], "vulnerability_type": "", "type_explanation": ""}.
+If there is: {"vulnerable": true, "line_numbers": [[a,b], ...], "vulnerability_type": "...", "type_explanation": "..."} with the **smallest** spans that pinpoint the flaw."""
 
 _GEMINI_SYSTEM_INSTRUCTION_EDUCATIONAL = """
 
@@ -1276,9 +1311,13 @@ def _gemini_user_prompt(
 ) -> str:
     ex_vuln = (
         '{"vulnerable": true, "line_numbers": [[12, 14]], '
-        '"vulnerability_type": "use_after_free"}'
+        '"vulnerability_type": "use_after_free", '
+        '"type_explanation": "Use-after-free reads or writes memory after it was freed, causing crashes or exploitable corruption. Here the pointer is used after free on a reachable path."}'
     )
-    ex_safe = '{"vulnerable": false, "line_numbers": [], "vulnerability_type": ""}'
+    ex_safe = (
+        '{"vulnerable": false, "line_numbers": [], "vulnerability_type": "", '
+        '"type_explanation": ""}'
+    )
     return f"""A static/ML scanner flagged the following code region as suspicious.
 
 **Your job:** Decide if there is a **real, exploitable or clearly unsafe** C/C++ security issue in the excerpt. Before answering, **briefly consider** (mentally) whether any of these apply: unchecked memcpy/strcpy sizing; integer overflow/underflow in sizes or indices; malloc/calloc without NULL check then use; double free or use-after-free; divide by zero or shift issues; printf/scanf/fscanf with tainted format or buffers that may lack a terminating NUL; command/system/popen/exec with untrusted strings; OOB array/pointer access; obvious resource leak on a security-relevant path; unbounded recursion or allocation loops.
@@ -1301,7 +1340,8 @@ Code:
 1. Respond with **only** one JSON object.
 2. Shape: {ex_vuln} when there is a real vulnerability, or {ex_safe} when there is not.
 3. "line_numbers" must list minimal inclusive spans (file line numbers) covering only the vulnerable code; use [] when vulnerable is false.
-4. "vulnerability_type" must be the **mechanism-accurate** primary category from the system list (e.g. use_after_free, format_string, integer_overflow). **Do not** output "stack_buffer_overflow" unless the core bug is actually an unchecked stack buffer write from missing bounds on a stack array. Use "" when vulnerable is false."""
+4. "vulnerability_type" must be the **mechanism-accurate** primary category from the system list (e.g. use_after_free, format_string, integer_overflow). **Do not** output "stack_buffer_overflow" unless the core bug is actually an unchecked stack buffer write from missing bounds on a stack array. Use "" when vulnerable is false.
+5. "type_explanation" must be "" when vulnerable is false; when true, 1–2 sentences as in the system instructions (reader-facing, not stack traces)."""
 
 
 def _parse_gemini_vulnerability_type(raw: Any) -> str:
@@ -1310,6 +1350,17 @@ def _parse_gemini_vulnerability_type(raw: Any) -> str:
     if isinstance(raw, str):
         return raw.strip()[:200]
     return str(raw).strip()[:200]
+
+
+def _parse_gemini_type_explanation(raw: Any) -> str:
+    if raw is None:
+        return ""
+    s = str(raw).strip().replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    while "  " in s:
+        s = s.replace("  ", " ")
+    if len(s) > 480:
+        s = s[:477].rstrip() + "…"
+    return s
 
 
 def _parse_gemini_json_response(response_text: str) -> Optional[Dict[str, Any]]:
@@ -1363,11 +1414,22 @@ def _parse_gemini_json_response(response_text: str) -> Optional[Dict[str, Any]]:
                     continue
 
     vtype = _parse_gemini_vulnerability_type(obj.get("vulnerability_type"))
+    expl = _parse_gemini_type_explanation(obj.get("type_explanation"))
     if not vuln:
-        return {"vulnerable": False, "line_numbers": [], "vulnerability_type": ""}
+        return {
+            "vulnerable": False,
+            "line_numbers": [],
+            "vulnerability_type": "",
+            "type_explanation": "",
+        }
     if not vtype:
         vtype = ""
-    return {"vulnerable": True, "line_numbers": line_numbers, "vulnerability_type": vtype}
+    return {
+        "vulnerable": True,
+        "line_numbers": line_numbers,
+        "vulnerability_type": vtype,
+        "type_explanation": expl,
+    }
 
 
 def _sanitize_gemini_line_numbers(
@@ -1440,13 +1502,18 @@ def gemini_evaluate_chunk(
 
     Returns None on API/parse failure (caller uses _gemini_error_keeps_finding()).
     Otherwise {"vulnerable": bool, "line_numbers": [...], "vulnerability_type": str}.
-    If no API key, returns {"vulnerable": True, "line_numbers": [], "vulnerability_type": ""} (keep ML span).
+    If no API key, returns {"vulnerable": True, "line_numbers": [], "vulnerability_type": "", "type_explanation": ""} (keep ML span).
     """
     import google.generativeai as genai
 
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
-        return {"vulnerable": True, "line_numbers": [], "vulnerability_type": ""}
+        return {
+            "vulnerable": True,
+            "line_numbers": [],
+            "vulnerability_type": "",
+            "type_explanation": "",
+        }
 
     model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest").strip()
     max_chars = max(4000, int(os.environ.get("GEMINI_MAX_CHUNK_CHARS", "120000")))
@@ -1582,6 +1649,7 @@ def _gemini_rows_for_single_item(item: Dict[str, Any]) -> List[Dict[str, Any]]:
             "vulnerable": True,
             "line_numbers": [],
             "vulnerability_type": "",
+            "type_explanation": "",
         }
 
     if not verdict.get("vulnerable"):
@@ -1591,6 +1659,7 @@ def _gemini_rows_for_single_item(item: Dict[str, Any]) -> List[Dict[str, Any]]:
             "vulnerable": True,
             "line_numbers": [],
             "vulnerability_type": "",
+            "type_explanation": "",
         }
 
     raw_pairs = verdict.get("line_numbers") or []
@@ -1605,6 +1674,7 @@ def _gemini_rows_for_single_item(item: Dict[str, Any]) -> List[Dict[str, Any]]:
     gtype = _parse_gemini_vulnerability_type(verdict.get("vulnerability_type"))
     if not gtype:
         gtype = str(item.get("matched_category", "")).strip() or "unspecified"
+    gexpl = _parse_gemini_type_explanation(verdict.get("type_explanation"))
 
     rows: List[Dict[str, Any]] = []
     for a, b in ranges:
@@ -1612,6 +1682,7 @@ def _gemini_rows_for_single_item(item: Dict[str, Any]) -> List[Dict[str, Any]]:
         out["line_start"] = a
         out["line_end"] = b
         out["vulnerability_type"] = gtype
+        out["type_explanation"] = gexpl
         out["code"] = _code_preview_for_file_lines(
             full, chunk_lo, chunk_hi, a, b, max_len=200
         )
@@ -1950,6 +2021,9 @@ def consolidate_findings(vulnerable_snippets: List[Dict]) -> Dict:
             "similarity_score": round(finding["similarity_score"], 3),
             "code_preview": finding["code"],
         }
+        tex = finding.get("type_explanation")
+        if isinstance(tex, str) and tex.strip():
+            vent["type_explanation"] = tex.strip()[:600]
         if finding.get("finding_role"):
             vent["finding_role"] = finding["finding_role"]
         if finding.get("sink_function"):

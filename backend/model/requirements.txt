@@ -1,7 +1,9 @@
 # Transformers 5.x is required so pickled classifiers (model.pkl) unpickle cleanly
 # (e.g. transformers.core_model_loading present in v5, not in v4.57).
+# Prefer hub <1.9 (1.9.0 packaging bug). If 1.9+ is installed, backend.py patches utils.logging first.
 sentence-transformers>=5.3.0,<6
 transformers>=5.0,<6
+huggingface-hub>=1.5.0,<1.9.0
 torch==2.11.0
 scikit-learn>=1.4.0
 numpy>=1.26.0,<2.2
