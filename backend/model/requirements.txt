@@ -5,3 +5,4 @@ transformers>=5.0,<6
 torch==2.11.0
 scikit-learn>=1.4.0
 numpy>=1.26.0,<2.2
+google-generativeai>=0.8.0

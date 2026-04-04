@@ -577,6 +577,26 @@
         line-height: 1.5;
         margin-bottom: 10px;
       }
+      .vuln-row {
+        margin-bottom: 0.55rem;
+      }
+      .vuln-row .vuln-call-hint {
+        margin-top: 0.2rem;
+        margin-bottom: 0;
+        font-weight: 500;
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.5);
+      }
+      .vuln-row:last-child {
+        margin-bottom: 0;
+      }
+      .vuln-type {
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        color: rgba(255, 186, 120, 0.92);
+        margin-top: 0.15rem;
+      }
       .vuln-file {
         font-family: "JetBrains Mono", monospace;
         font-size: 0.78rem;
@@ -1141,7 +1161,10 @@
       const SCAN_URL = `${BACKEND_BASE_URL}/api/scan`;
       const STATUS_URL = `${BACKEND_BASE_URL}/api/scan/status`;
       const VULN_URL = `${BACKEND_BASE_URL}/api/vulnerabilities.json`;
-      const POLL_DELAY_MS = 2000;
+      const POLL_DELAY_MS = 1000;
+
+      /** Set from GET /api/health before scan — false when server has no GEMINI_API_KEY. */
+      let geminiVerifyConfigured = true;
 
       // Generate scan feathers
       const sf = document.getElementById("scanFeathers");
@@ -1162,21 +1185,53 @@
       }
 
       function scanProgressSubtitle(payload) {
-        const parts = [];
-        if (payload.phase) parts.push(payload.phase);
-        if (payload.detail) parts.push(payload.detail);
+        const mlOnlyNote =
+          geminiVerifyConfigured === false
+            ? "ML-only (Gemini API not configured on server). "
+            : "";
+
+        const phase = payload.phase;
+        const files = payload.c_cpp_files;
+        const tot = payload.snippets_total;
+        const done = payload.snippets_scored;
+
         if (
-          payload.snippets_total != null &&
-          payload.snippets_scored != null
+          phase === "scoring_snippets" &&
+          tot != null &&
+          done != null &&
+          files != null
         ) {
-          parts.push(
-            `snippets ${payload.snippets_scored}/${payload.snippets_total}`,
+          return (
+            mlOnlyNote +
+            `Scoring ${tot} snippet window(s) from ${files} C/C++ file(s) · snippets ${done}/${tot}.`
           );
         }
-        if (payload.c_cpp_files != null) {
-          parts.push(`${payload.c_cpp_files} C/C++ file(s)`);
+        if (phase === "gemini_verify" && tot != null && done != null) {
+          return `Making a Gemini API call (binary vulnerability check) · snippets ${done}/${tot}.`;
         }
-        return parts.length ? parts.join(" · ") : null;
+
+        const parts = [];
+        if (payload.detail) parts.push(payload.detail);
+        const tail = parts.length ? parts.join(" · ") : null;
+        if (tail) return mlOnlyNote + tail;
+        return mlOnlyNote ? mlOnlyNote.trim() : null;
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function formatVulnTypeLabel(t) {
+        if (!t || typeof t !== "string") return "";
+        const words = t.replace(/_/g, " ").trim().split(/\s+/);
+        if (!words.length) return "";
+        return words
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(" ");
       }
 
       function renderError(title, message) {
@@ -1214,23 +1269,62 @@
         let totalRanges = 0;
         items.forEach((item) => {
           const file = item.file_name || "Unknown file";
-          const ranges = Array.isArray(item.line_numbers) ? item.line_numbers : [];
-          totalRanges += ranges.length;
+          const fileEsc = escapeHtml(file);
+          let rangeHtml = "";
 
-          const rangeHtml = ranges
-            .map(([start, end]) => {
-              if (start === end) {
-                return `<div class="vuln-file">${file}: line ${start}</div>`;
-              }
-              return `<div class="vuln-file">${file}: lines ${start}-${end}</div>`;
-            })
-            .join("");
+          if (Array.isArray(item.findings) && item.findings.length) {
+            totalRanges += item.findings.length;
+            rangeHtml = item.findings
+              .map((f) => {
+                const pair = f.line_numbers;
+                if (!Array.isArray(pair) || pair.length !== 2) return "";
+                const start = Number(pair[0]);
+                const end = Number(pair[1]);
+                const typRaw = f.vulnerability_type || "";
+                const typ = formatVulnTypeLabel(typRaw);
+                const linePart =
+                  start === end
+                    ? `line ${start}`
+                    : `lines ${start}-${end}`;
+                const typeBlock = typ
+                  ? `<div class="vuln-type">${escapeHtml(typ)}</div>`
+                  : "";
+                let callHint = "";
+                if (
+                  f.finding_role === "call_site" &&
+                  Array.isArray(f.sink_line_numbers) &&
+                  f.sink_line_numbers.length === 2
+                ) {
+                  const ss = Number(f.sink_line_numbers[0]);
+                  const se = Number(f.sink_line_numbers[1]);
+                  const sinkPart =
+                    ss === se ? `line ${ss}` : `lines ${ss}-${se}`;
+                  const fn = f.sink_function
+                    ? escapeHtml(String(f.sink_function))
+                    : "sink";
+                  callHint = `<div class="vuln-desc vuln-call-hint">Call site → ${fn} (${sinkPart})</div>`;
+                }
+                return `<div class="vuln-row"><div class="vuln-file">${fileEsc}: ${linePart}</div>${typeBlock}${callHint}</div>`;
+              })
+              .join("");
+          } else {
+            const ranges = Array.isArray(item.line_numbers) ? item.line_numbers : [];
+            totalRanges += ranges.length;
+            rangeHtml = ranges
+              .map(([start, end]) => {
+                if (start === end) {
+                  return `<div class="vuln-row"><div class="vuln-file">${fileEsc}: line ${start}</div></div>`;
+                }
+                return `<div class="vuln-row"><div class="vuln-file">${fileEsc}: lines ${start}-${end}</div></div>`;
+              })
+              .join("");
+          }
 
           listEl.insertAdjacentHTML(
             "beforeend",
             `
             <div class="vuln-card info">
-              <div class="vuln-name">${file}</div>
+              <div class="vuln-name">${fileEsc}</div>
               ${rangeHtml}
             </div>
           `,
@@ -1339,6 +1433,18 @@
         setScanOverlay("Preparing the flock...", "Sending scan request...", 10);
 
         try {
+          try {
+            const healthResp = await fetch(`${BACKEND_BASE_URL}/api/health`, {
+              cache: "no-store",
+            });
+            if (healthResp.ok) {
+              const h = await healthResp.json();
+              geminiVerifyConfigured = h.gemini_verify_enabled === true;
+            }
+          } catch (_) {
+            geminiVerifyConfigured = true;
+          }
+
           const resp = await fetch(SCAN_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },

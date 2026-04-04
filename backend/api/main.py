@@ -2,8 +2,9 @@
 FastAPI: accept a GitHub URL, run the C/C++ scanner (backend.py), then update
 one canonical JSON file + in-memory payload for the frontend.
 
-Served / on-disk format: JSON array of objects (files with no hits are omitted):
-  [ { "file_name": "relative/path.c", "line_numbers": [[1, 10], [20, 30]] }, ... ]
+Served / on-disk format: JSON array (files with no hits are omitted):
+  [ { "file_name": "relative/path.c",
+      "findings": [ { "line_numbers": [1, 10], "vulnerability_type": "..." }, ... ] }, ... ]
 Same file is overwritten each successful scan.
 """
 from __future__ import annotations
@@ -97,18 +98,30 @@ def _ml_stack_available() -> bool:
         return False
 
 
+def _gemini_verify_active() -> bool:
+    """True when scanner would call Gemini (API key set + verify not disabled)."""
+    if vuln_backend is None:
+        return False
+    fn = getattr(vuln_backend, "_gemini_verify_enabled", None)
+    if not callable(fn):
+        return False
+    try:
+        return bool(fn())
+    except Exception:
+        return False
+
+
 def report_to_frontend_payload(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Build [{ "file_name": str, "line_numbers": [[start,end], ...] }, ...]
+    Build [{ "file_name", "findings": [{ "line_numbers": [s,e], "vulnerability_type": str }] }, ...]
     from backend consolidate_findings report. Omits files with no ranges.
     """
-    from collections import defaultdict
-
-    ranges_by_file: Dict[str, set] = defaultdict(set)
+    out: List[Dict[str, Any]] = []
     for file_entry in report.get("files") or []:
         path = (file_entry.get("file_path") or "").strip()
         if not path:
             continue
+        findings: List[Dict[str, Any]] = []
         for v in file_entry.get("vulnerabilities") or []:
             ls, le = v.get("line_start"), v.get("line_end")
             if ls is None:
@@ -121,16 +134,31 @@ def report_to_frontend_payload(report: Dict[str, Any]) -> List[Dict[str, Any]]:
                 continue
             if a > b:
                 a, b = b, a
-            ranges_by_file[path].add((a, b))
-
-    return [
-        {
-            "file_name": p,
-            "line_numbers": [list(pair) for pair in sorted(ranges)],
-        }
-        for p, ranges in sorted(ranges_by_file.items())
-        if ranges
-    ]
+            vtype = (v.get("vulnerability_type") or v.get("category") or "").strip()
+            if not vtype:
+                vtype = "Unclassified"
+            fd: Dict[str, Any] = {
+                "line_numbers": [a, b],
+                "vulnerability_type": vtype,
+            }
+            if v.get("finding_role"):
+                fd["finding_role"] = str(v["finding_role"])
+            if v.get("sink_function"):
+                fd["sink_function"] = str(v["sink_function"])
+            ss = v.get("sink_line_start")
+            if ss is not None:
+                try:
+                    sa, sb = int(ss), int(v.get("sink_line_end", ss))
+                except (TypeError, ValueError):
+                    pass
+                else:
+                    if sa > sb:
+                        sa, sb = sb, sa
+                    fd["sink_line_numbers"] = [sa, sb]
+            findings.append(fd)
+        if findings:
+            out.append({"file_name": path, "findings": findings})
+    return out
 
 
 def persist_vulnerability_json(data: List[Dict[str, Any]]) -> None:
@@ -158,16 +186,85 @@ def load_vulnerability_json_from_disk() -> None:
             if not isinstance(item, dict):
                 continue
             fn = item.get("file_name")
+            if not isinstance(fn, str):
+                continue
+            fd = item.get("findings")
+            if isinstance(fd, list):
+                clean: List[Dict[str, Any]] = []
+                for f in fd:
+                    if not isinstance(f, dict):
+                        continue
+                    pair = f.get("line_numbers")
+                    if (
+                        isinstance(pair, list)
+                        and len(pair) == 2
+                        and all(isinstance(x, (int, float)) for x in pair)
+                    ):
+                        entry: Dict[str, Any] = {
+                            "line_numbers": [int(pair[0]), int(pair[1])],
+                            "vulnerability_type": str(
+                                f.get("vulnerability_type") or "Unclassified"
+                            ),
+                        }
+                        if f.get("finding_role"):
+                            entry["finding_role"] = str(f["finding_role"])
+                        if f.get("sink_function"):
+                            entry["sink_function"] = str(f["sink_function"])
+                        sln = f.get("sink_line_numbers")
+                        if (
+                            isinstance(sln, list)
+                            and len(sln) == 2
+                            and all(
+                                isinstance(x, (int, float)) for x in sln
+                            )
+                        ):
+                            entry["sink_line_numbers"] = [
+                                int(sln[0]),
+                                int(sln[1]),
+                            ]
+                        clean.append(entry)
+                if clean:
+                    out.append({"file_name": fn, "findings": clean})
+                    continue
             ln = item.get("line_numbers")
-            if isinstance(fn, str) and isinstance(ln, list):
-                out.append({"file_name": fn, "line_numbers": ln})
+            if isinstance(ln, list):
+                legacy_findings: List[Dict[str, Any]] = []
+                for pair in ln:
+                    if (
+                        isinstance(pair, (list, tuple))
+                        and len(pair) == 2
+                        and all(isinstance(x, int) for x in pair)
+                    ):
+                        legacy_findings.append(
+                            {
+                                "line_numbers": [int(pair[0]), int(pair[1])],
+                                "vulnerability_type": "Unclassified",
+                            }
+                        )
+                if legacy_findings:
+                    out.append({"file_name": fn, "findings": legacy_findings})
         _latest_vulnerability_payload = out
     elif isinstance(raw, dict):
-        _latest_vulnerability_payload = [
-            {"file_name": k, "line_numbers": v}
-            for k, v in sorted(raw.items())
-            if isinstance(k, str) and isinstance(v, list)
-        ]
+        legacy_out: List[Dict[str, Any]] = []
+        for k, v in sorted(raw.items()):
+            if not isinstance(k, str) or not isinstance(v, list):
+                continue
+            lf: List[Dict[str, Any]] = []
+            for pair in v:
+                if (
+                    isinstance(pair, (list, tuple))
+                    and len(pair) == 2
+                    and all(isinstance(x, int) for x in pair)
+                ):
+                    lf.append(
+                        {
+                            "line_numbers": [int(pair[0]), int(pair[1])],
+                            "vulnerability_type": "Unclassified",
+                        }
+                    )
+            if lf:
+                legacy_out.append({"file_name": k, "findings": lf})
+        _latest_vulnerability_payload = legacy_out
 
 
 @asynccontextmanager
@@ -396,7 +493,8 @@ def _serve_vulnerability_payload() -> List[Dict[str, Any]]:
 async def get_vulnerabilities_json():
     """
     Frontend: same JSON written to disk after each successful scan.
-    [ { "file_name": "path/to/file.c", "line_numbers": [[1, 10], [20, 30]] }, ... ]
+    [ { "file_name": "path/to/file.c",
+        "findings": [ { "line_numbers": [1, 10], "vulnerability_type": "buffer_overflow" }, ... ] }, ... ]
     """
     return _serve_vulnerability_payload()
 
@@ -407,6 +505,7 @@ async def health_check():
         "status": "healthy",
         "scanner_backend_loaded": _SCAN_REPOSITORY is not None,
         "ml_dependencies_present": _ml_stack_available(),
+        "gemini_verify_enabled": _gemini_verify_active(),
         "vulnerability_json_path": str(_frontend_json_path()),
         "scan_status": _scan_state["status"],
         "timestamp": _utc_iso(),
