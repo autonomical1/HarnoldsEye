@@ -18,7 +18,12 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from starlette.requests import Request
 
 # -----------------------------------------------------------------------------
 # Backend scanner (../model/backend.py)
@@ -43,6 +48,20 @@ def _frontend_json_path() -> Path:
     return Path(os.environ.get("FRONTEND_VULN_JSON", str(_DEFAULT_VULN_JSON)))
 
 
+def _cors_allow_origins() -> List[str]:
+    raw = os.environ.get("CORS_ORIGINS", "").strip()
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return ["http://127.0.0.1:8000", "http://localhost:8000"]
+
+
+def _scan_rate_limit() -> str:
+    return os.environ.get("SCAN_RATE_LIMIT", "10/hour").strip() or "10/hour"
+
+
+_FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
+
+
 # Canonical payload for GET /api/vulnerabilities.json (list of file records)
 _latest_vulnerability_payload: List[Dict[str, Any]] = []
 
@@ -53,6 +72,11 @@ _scan_state: Dict[str, Any] = {
     "error": None,
     "started_at": None,
     "completed_at": None,
+    "phase": None,
+    "detail": None,
+    "c_cpp_files": None,
+    "snippets_total": None,
+    "snippets_scored": None,
 }
 
 _scan_lock = asyncio.Lock()
@@ -152,12 +176,15 @@ async def lifespan(app: FastAPI):
     yield
 
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="AI Vulnerability Tracker", version="2.0.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
-    allow_credentials=True,
+    allow_origins=_cors_allow_origins(),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -184,11 +211,28 @@ class ScanStatusResponse(BaseModel):
     error: Optional[str] = None
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+    phase: Optional[str] = None
+    detail: Optional[str] = None
+    c_cpp_files: Optional[int] = None
+    snippets_total: Optional[int] = None
+    snippets_scored: Optional[int] = None
 
 
 # ============================================================================
 # Pipeline
 # ============================================================================
+
+
+def _reset_scan_progress_fields() -> None:
+    _scan_state.update(
+        {
+            "phase": None,
+            "detail": None,
+            "c_cpp_files": None,
+            "snippets_total": None,
+            "snippets_scored": None,
+        }
+    )
 
 
 async def run_single_scan(github_url: str) -> None:
@@ -218,10 +262,29 @@ async def run_single_scan(github_url: str) -> None:
         )
 
         loop = asyncio.get_event_loop()
-        report: Dict[str, Any] = await loop.run_in_executor(
-            None,
-            lambda: _SCAN_REPOSITORY(github_url, str(internal_report)),
-        )
+
+        def sync_scan() -> Dict[str, Any]:
+            def on_progress(snapshot: Dict[str, Any]) -> None:
+                def merge() -> None:
+                    for key in (
+                        "phase",
+                        "detail",
+                        "c_cpp_files",
+                        "snippets_total",
+                        "snippets_scored",
+                    ):
+                        if key in snapshot:
+                            _scan_state[key] = snapshot[key]
+
+                loop.call_soon_threadsafe(merge)
+
+            return _SCAN_REPOSITORY(
+                github_url,
+                str(internal_report),
+                progress_callback=on_progress,
+            )
+
+        report = await loop.run_in_executor(None, sync_scan)
 
         if report.get("error"):
             _scan_state.update(
@@ -231,6 +294,7 @@ async def run_single_scan(github_url: str) -> None:
                     "completed_at": _utc_iso(),
                 }
             )
+            _reset_scan_progress_fields()
             return
 
         payload = report_to_frontend_payload(report)
@@ -244,6 +308,7 @@ async def run_single_scan(github_url: str) -> None:
                 "completed_at": _utc_iso(),
             }
         )
+        _reset_scan_progress_fields()
     except Exception as e:  # noqa: BLE001
         _scan_state.update(
             {
@@ -252,6 +317,7 @@ async def run_single_scan(github_url: str) -> None:
                 "completed_at": _utc_iso(),
             }
         )
+        _reset_scan_progress_fields()
 
 
 # ============================================================================
@@ -260,8 +326,13 @@ async def run_single_scan(github_url: str) -> None:
 
 
 @app.post("/api/scan", response_model=ScanAcceptedResponse)
-async def initiate_scan(request: ScanRequest, background_tasks: BackgroundTasks):
-    if "github.com" not in request.github_url:
+@limiter.limit(_scan_rate_limit())
+async def initiate_scan(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    body: ScanRequest,
+):
+    if "github.com" not in body.github_url:
         raise HTTPException(status_code=400, detail="Invalid GitHub URL")
 
     if _SCAN_REPOSITORY is None:
@@ -280,18 +351,19 @@ async def initiate_scan(request: ScanRequest, background_tasks: BackgroundTasks)
         _scan_state.update(
             {
                 "status": "queued",
-                "github_url": request.github_url,
+                "github_url": body.github_url,
                 "error": None,
                 "started_at": _utc_iso(),
                 "completed_at": None,
             }
         )
+        _reset_scan_progress_fields()
 
-    background_tasks.add_task(run_single_scan, request.github_url)
+    background_tasks.add_task(run_single_scan, body.github_url)
 
     return ScanAcceptedResponse(
         status="queued",
-        github_url=request.github_url,
+        github_url=body.github_url,
         message="Scan started. Poll GET /api/scan/status then fetch GET /api/vulnerabilities.json",
     )
 
@@ -304,6 +376,11 @@ async def get_scan_status():
         error=_scan_state.get("error"),
         started_at=_scan_state.get("started_at"),
         completed_at=_scan_state.get("completed_at"),
+        phase=_scan_state.get("phase"),
+        detail=_scan_state.get("detail"),
+        c_cpp_files=_scan_state.get("c_cpp_files"),
+        snippets_total=_scan_state.get("snippets_total"),
+        snippets_scored=_scan_state.get("snippets_scored"),
     )
 
 
@@ -334,6 +411,14 @@ async def health_check():
         "scan_status": _scan_state["status"],
         "timestamp": _utc_iso(),
     }
+
+
+if _FRONTEND_DIR.is_dir():
+    app.mount(
+        "/",
+        StaticFiles(directory=str(_FRONTEND_DIR), html=True),
+        name="frontend",
+    )
 
 
 if __name__ == "__main__":

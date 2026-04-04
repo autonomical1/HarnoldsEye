@@ -103,6 +103,25 @@ RISKY_C_CPP_PATTERNS = {
 }
 
 # ============================================================================
+# SCAN PROGRESS (merged into API /api/scan/status while a scan runs)
+# ============================================================================
+
+SCAN_PROGRESS: Dict[str, Any] = {}
+
+
+def _emit_scan_progress(
+    progress_callback: Optional[Any],
+    **kwargs: Any,
+) -> None:
+    SCAN_PROGRESS.update(kwargs)
+    if progress_callback is not None:
+        try:
+            progress_callback(dict(SCAN_PROGRESS))
+        except Exception:
+            pass
+
+
+# ============================================================================
 # ML MODEL
 # ============================================================================
 
@@ -257,14 +276,77 @@ class VulnerabilityScanner:
             "all_scores": all_scores,
         }
 
-    def _score_with_embeddings(self, code_snippet: str) -> Dict:
-        assert self.model is not None and self.pattern_embeddings is not None
-        snippet_embedding = self.model.encode(code_snippet)
+    def score_snippets_classifier_batch(
+        self,
+        texts: List[str],
+        batch_size: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Batched forward pass — much faster than score_snippet per snippet on CPU."""
+        import torch
+
+        if batch_size is None:
+            batch_size = max(1, int(os.environ.get("CLASSIFIER_BATCH_SIZE", "16")))
+        model = self._torch_model
+        tokenizer = self.tokenizer
+        assert model is not None and tokenizer is not None
+        max_len = int(os.environ.get("CLASSIFIER_MAX_LENGTH", "512"))
+        device = next(model.parameters()).device
+        id2label = getattr(model.config, "id2label", None) or {}
+
+        def _one_row_probs(probs: List[float]) -> Dict[str, Any]:
+            all_scores: Dict[str, float] = {}
+            for i, p in enumerate(probs):
+                lab = id2label.get(i)
+                if lab is None and isinstance(id2label, dict):
+                    lab = id2label.get(str(i))
+                if lab is None:
+                    lab = str(i)
+                elif not isinstance(lab, str):
+                    lab = str(lab)
+                all_scores[lab] = float(p)
+            per = sorted(all_scores.values(), reverse=True)
+            max_similarity = per[0]
+            second_best = per[1] if len(per) > 1 else 0.0
+            best_category = max(all_scores, key=all_scores.get)
+            return {
+                "max_similarity": max_similarity,
+                "second_best_similarity": second_best,
+                "category_margin": max_similarity - second_best,
+                "matched_category": best_category,
+                "all_scores": all_scores,
+            }
+
+        out: List[Dict[str, Any]] = []
+        with torch.no_grad():
+            for start in range(0, len(texts), batch_size):
+                batch = texts[start : start + batch_size]
+                enc = tokenizer(
+                    batch,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=max_len,
+                    padding=True,
+                )
+                enc = {k: v.to(device) for k, v in enc.items()}
+                logits = model(**enc).logits
+                probs_t = torch.softmax(logits, dim=-1)
+                for row in range(probs_t.shape[0]):
+                    out.append(_one_row_probs(probs_t[row].cpu().tolist()))
+        return out
+
+    def _score_with_embedding_vector(self, snippet_embedding: Any) -> Dict[str, Any]:
+        """Score one snippet from a precomputed embedding row (1d array)."""
+        import numpy as np
+
+        assert self.pattern_embeddings is not None
+        vec = np.atleast_2d(np.asarray(snippet_embedding, dtype=float))
 
         all_scores: Dict[str, float] = {}
         for category, pattern_embeddings in self.pattern_embeddings.items():
             similarities = [
-                cosine_similarity([snippet_embedding], [p_emb])[0][0]
+                cosine_similarity(vec, np.atleast_2d(np.asarray(p_emb, dtype=float)))[
+                    0
+                ][0]
                 for p_emb in pattern_embeddings
             ]
             max_sim = max(similarities) if similarities else 0.0
@@ -283,6 +365,11 @@ class VulnerabilityScanner:
             "all_scores": all_scores,
         }
 
+    def _score_with_embeddings(self, code_snippet: str) -> Dict:
+        assert self.model is not None
+        snippet_embedding = self.model.encode(code_snippet)
+        return self._score_with_embedding_vector(snippet_embedding)
+
 
 # ============================================================================
 # CODE EXTRACTION (C/C++ ONLY)
@@ -295,11 +382,19 @@ def clone_repository(github_url: str) -> str:
     try:
         print(f"Cloning {github_url}...")
         subprocess.run(
-            ["git", "clone", "--depth", "1", github_url, temp_dir],
+            [
+                "git",
+                "clone",
+                "--depth",
+                "1",
+                "--single-branch",
+                github_url,
+                temp_dir,
+            ],
             timeout=120,
             check=True,
             capture_output=True,
-            text=True
+            text=True,
         )
         print(f"✓ Repository cloned to {temp_dir}")
         return temp_dir
@@ -326,9 +421,16 @@ def extract_c_cpp_files(repo_path: str) -> List[Dict]:
         }
     ]
     """
-    c_cpp_extensions = {'.c', '.cpp', '.cc', '.cxx', '.h', '.hpp', '.hh'}
+    # Implementation / header-only: set SCAN_INCLUDE_HEADERS=0 to scan .c/.cpp/.cc/.cxx only.
+    include_headers = os.environ.get("SCAN_INCLUDE_HEADERS", "1").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    header_exts = {".h", ".hpp", ".hh"}
+    c_cpp_extensions = {".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh"}
     files = []
-    
+
     for root, dirs, filenames in os.walk(repo_path):
         # Skip common non-source directories
         dirs[:] = [d for d in dirs if d not in {
@@ -338,42 +440,49 @@ def extract_c_cpp_files(repo_path: str) -> List[Dict]:
         }]
         
         for filename in filenames:
-            if Path(filename).suffix.lower() in c_cpp_extensions:
-                absolute_path = os.path.join(root, filename)
-                relative_path = os.path.relpath(absolute_path, repo_path)
-                
-                # Skip large files
-                if os.path.getsize(absolute_path) > 1_000_000:
-                    print(f"⊘ Skipping large file: {relative_path}")
-                    continue
-                
-                try:
-                    with open(absolute_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        lines = f.readlines()
-                    
-                    # Determine language
-                    ext = Path(filename).suffix.lower()
-                    language = 'cpp' if ext in {'.cpp', '.cc', '.cxx', '.hpp', '.hh'} else 'c'
-                    
-                    files.append({
-                        "file_path": relative_path,
-                        "absolute_path": absolute_path,
-                        "language": language,
-                        "lines": lines
-                    })
-                
-                except Exception as e:
-                    print(f"⊘ Error reading {relative_path}: {e}")
-                    continue
+            ext = Path(filename).suffix.lower()
+            if ext not in c_cpp_extensions:
+                continue
+            if not include_headers and ext in header_exts:
+                continue
+            absolute_path = os.path.join(root, filename)
+            relative_path = os.path.relpath(absolute_path, repo_path)
+
+            # Skip large files
+            if os.path.getsize(absolute_path) > 1_000_000:
+                print(f"⊘ Skipping large file: {relative_path}")
+                continue
+
+            try:
+                with open(absolute_path, "r", encoding="utf-8", errors="ignore") as f:
+                    lines = f.readlines()
+
+                language = (
+                    "cpp"
+                    if ext in {".cpp", ".cc", ".cxx", ".hpp", ".hh"}
+                    else "c"
+                )
+
+                files.append({
+                    "file_path": relative_path,
+                    "absolute_path": absolute_path,
+                    "language": language,
+                    "lines": lines,
+                })
+
+            except Exception as e:
+                print(f"⊘ Error reading {relative_path}: {e}")
+                continue
     
-    print(f"✓ Found {len(files)} C/C++ files")
+    mode = "C/C++ sources + headers" if include_headers else "C/C++ sources only (.c/.cpp/.cc/.cxx)"
+    print(f"✓ Found {len(files)} file(s) ({mode})")
     return files
 
 
 def extract_snippets_from_lines(
     lines: List[str],
     file_path: str,
-    snippet_size: int = 10
+    snippet_size: Optional[int] = None,
 ) -> List[Dict]:
     """
     Extract overlapping code snippets from file lines.
@@ -388,8 +497,11 @@ def extract_snippets_from_lines(
         }
     ]
     """
+    if snippet_size is None:
+        snippet_size = max(3, int(os.environ.get("SNIPPET_WINDOW_LINES", "10")))
+    stride_env = int(os.environ.get("SNIPPET_LINE_STRIDE", "0"))
+    stride = stride_env if stride_env > 0 else max(1, snippet_size // 2)
     snippets = []
-    stride = max(1, snippet_size // 2)  # 50% overlap
     
     for i in range(0, len(lines), stride):
         end_idx = min(i + snippet_size, len(lines))
@@ -433,23 +545,73 @@ def _percentile_nearest_rank(values: List[float], pct: float) -> float:
 def find_vulnerable_snippets(
     scanner: VulnerabilityScanner,
     files: List[Dict],
+    progress_callback: Optional[Any] = None,
 ) -> List[Dict]:
     """
     Scan all snippets; keep those passing absolute similarity, category margin,
     and repo-wide percentile (reduces false positives from uniformly high embeddings).
     """
-    # Pass 1: score every snippet (needed for repo-wide percentile cutoff).
-    scored: List[Tuple[str, Dict, Dict]] = []
-    total_snippets = 0
-
+    flat: List[Tuple[str, Dict]] = []
     for file_info in files:
         file_path = file_info["file_path"]
         lines = file_info["lines"]
         snippets = extract_snippets_from_lines(lines, file_path)
-        total_snippets += len(snippets)
         for snippet in snippets:
-            score_result = scanner.score_snippet(snippet["code"])
-            scored.append((file_path, snippet, score_result))
+            flat.append((file_path, snippet))
+
+    total = len(flat)
+    _emit_scan_progress(
+        progress_callback,
+        phase="scoring_snippets",
+        snippets_total=total,
+        snippets_scored=0,
+        detail=f"Scoring {total} snippet window(s) from {len(files)} C/C++ file(s)",
+    )
+
+    score_results: List[Dict[str, Any]] = []
+    if getattr(scanner, "uses_classifier", False) and scanner._torch_model is not None:
+        texts = [s["code"] for _, s in flat]
+        batch_size = max(1, int(os.environ.get("CLASSIFIER_BATCH_SIZE", "16")))
+        for start in range(0, len(texts), batch_size):
+            chunk = texts[start : start + batch_size]
+            score_results.extend(
+                scanner.score_snippets_classifier_batch(chunk, batch_size=len(chunk))
+            )
+            done = min(start + len(chunk), total)
+            _emit_scan_progress(
+                progress_callback,
+                snippets_scored=done,
+                detail=f"Classifier: scored {done}/{total} snippets (batch {batch_size})",
+            )
+    elif scanner.model is not None and scanner.pattern_embeddings is not None:
+        texts = [s["code"] for _, s in flat]
+        st_batch = max(1, int(os.environ.get("ST_ENCODE_BATCH_SIZE", "32")))
+        embs = scanner.model.encode(
+            texts,
+            batch_size=st_batch,
+            show_progress_bar=False,
+        )
+        for idx, emb_row in enumerate(embs):
+            score_results.append(scanner._score_with_embedding_vector(emb_row))
+            if (idx + 1) % 64 == 0 or idx + 1 == total:
+                _emit_scan_progress(
+                    progress_callback,
+                    snippets_scored=idx + 1,
+                    detail=f"Embeddings: scored {idx + 1}/{total} snippets",
+                )
+    else:
+        for i, (_, snip) in enumerate(flat):
+            score_results.append(scanner.score_snippet(snip["code"]))
+            if (i + 1) % 50 == 0 or i + 1 == total:
+                _emit_scan_progress(
+                    progress_callback,
+                    snippets_scored=i + 1,
+                    detail=f"Scored {i + 1}/{total} snippets",
+                )
+
+    scored: List[Tuple[str, Dict, Dict]] = [
+        (flat[i][0], flat[i][1], score_results[i]) for i in range(len(flat))
+    ]
 
     max_sims = [r["max_similarity"] for _, _, r in scored]
     cutoff = _percentile_nearest_rank(max_sims, ML_REPO_SCORE_PERCENTILE)
@@ -478,7 +640,7 @@ def find_vulnerable_snippets(
             "all_scores": r["all_scores"],
         })
 
-    print(f"✓ Scanned {total_snippets} snippets (repo percentile cutoff={cutoff:.3f})")
+    print(f"✓ Scanned {total} snippets (repo percentile cutoff={cutoff:.3f})")
     print(f"✓ Found {len(vulnerable_snippets)} suspicious snippets after filtering")
     
     return vulnerable_snippets
@@ -556,7 +718,11 @@ def consolidate_findings(vulnerable_snippets: List[Dict]) -> Dict:
 # MAIN PIPELINE
 # ============================================================================
 
-def scan_repository(github_url: str, output_file: str = "vulnerabilities.json") -> Dict:
+def scan_repository(
+    github_url: str,
+    output_file: str = "vulnerabilities.json",
+    progress_callback: Optional[Any] = None,
+) -> Dict:
     """
     Main function: GitHub URL → JSON report
     
@@ -568,19 +734,43 @@ def scan_repository(github_url: str, output_file: str = "vulnerabilities.json") 
         Vulnerability report dict
     """
     repo_path = None
-    
+
     try:
+        SCAN_PROGRESS.clear()
+        _emit_scan_progress(
+            progress_callback,
+            phase="starting",
+            detail="Starting scan",
+            c_cpp_files=None,
+            snippets_total=None,
+            snippets_scored=None,
+        )
+
         print("=" * 60)
         print("C/C++ VULNERABILITY SCANNER")
         print("=" * 60)
-        
-        # Step 1: Clone repo
+
+        _emit_scan_progress(
+            progress_callback,
+            phase="cloning",
+            detail=f"Cloning {github_url}",
+        )
         repo_path = clone_repository(github_url)
-        
-        # Step 2: Extract C/C++ files
+
         print("\nExtracting C/C++ files...")
+        _emit_scan_progress(
+            progress_callback,
+            phase="extracting_sources",
+            detail="Collecting .c/.cpp/.cc/.cxx (+ headers unless SCAN_INCLUDE_HEADERS=0)",
+        )
         files = extract_c_cpp_files(repo_path)
-        
+        _emit_scan_progress(
+            progress_callback,
+            phase="sources_ready",
+            c_cpp_files=len(files),
+            detail=f"{len(files)} C/C++ file(s) to analyze",
+        )
+
         if not files:
             print("⚠ No C/C++ files found in repository")
             return {
@@ -593,16 +783,30 @@ def scan_repository(github_url: str, output_file: str = "vulnerabilities.json") 
                 }
             }
         
-        # Step 3: Initialize scanner
         print("\nInitializing ML scanner...")
+        _emit_scan_progress(
+            progress_callback,
+            phase="loading_model",
+            detail="Loading classifier / embeddings",
+        )
         scanner = VulnerabilityScanner()
-        
-        # Step 4: Scan for vulnerabilities
+
         print("\nScanning files...")
-        vulnerable_snippets = find_vulnerable_snippets(scanner, files)
-        
-        # Step 5: Consolidate findings
+        _emit_scan_progress(
+            progress_callback,
+            phase="snippet_scan",
+            detail="Running ML on code windows",
+        )
+        vulnerable_snippets = find_vulnerable_snippets(
+            scanner, files, progress_callback=progress_callback
+        )
+
         print("\nConsolidating findings...")
+        _emit_scan_progress(
+            progress_callback,
+            phase="consolidating",
+            detail="Merging findings",
+        )
         report = consolidate_findings(vulnerable_snippets)
         
         # Add metadata

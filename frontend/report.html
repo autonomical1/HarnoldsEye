@@ -1132,7 +1132,7 @@
       </div>
     </main>
 
-    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+    <script>
       // Parse repo URL from query params
       const params = new URLSearchParams(window.location.search);
       const repoUrl = params.get("repo");
@@ -1159,6 +1159,24 @@
         document.getElementById("scanText").textContent = text;
         document.getElementById("scanStatus").textContent = statusText;
         document.getElementById("scanFill").style.width = `${pct}%`;
+      }
+
+      function scanProgressSubtitle(payload) {
+        const parts = [];
+        if (payload.phase) parts.push(payload.phase);
+        if (payload.detail) parts.push(payload.detail);
+        if (
+          payload.snippets_total != null &&
+          payload.snippets_scored != null
+        ) {
+          parts.push(
+            `snippets ${payload.snippets_scored}/${payload.snippets_total}`,
+          );
+        }
+        if (payload.c_cpp_files != null) {
+          parts.push(`${payload.c_cpp_files} C/C++ file(s)`);
+        }
+        return parts.length ? parts.join(" · ") : null;
       }
 
       function renderError(title, message) {
@@ -1254,13 +1272,33 @@
           const status = statusPayload.status || "idle";
 
           if (status === "queued") {
-            setScanOverlay("Scan queued", "Waiting for the scanner to start...", 30);
+            setScanOverlay(
+              "Scan queued",
+              scanProgressSubtitle(statusPayload) ||
+                "Waiting for the scanner to start...",
+              30,
+            );
             setTimeout(pollScanStatus, POLL_DELAY_MS);
             return;
           }
 
           if (status === "processing") {
-            setScanOverlay("The flock is scanning...", "Processing repository data...", 65);
+            const sub =
+              scanProgressSubtitle(statusPayload) ||
+              "Processing repository data...";
+            let pct = 65;
+            if (
+              statusPayload.snippets_total > 0 &&
+              statusPayload.snippets_scored != null
+            ) {
+              pct =
+                12 +
+                Math.round(
+                  (75 * statusPayload.snippets_scored) /
+                    statusPayload.snippets_total,
+                );
+            }
+            setScanOverlay("The flock is scanning...", sub, Math.min(92, pct));
             setTimeout(pollScanStatus, POLL_DELAY_MS);
             return;
           }

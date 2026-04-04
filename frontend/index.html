@@ -1876,7 +1876,10 @@
         },
         { threshold: 0.3 },
       );
-      statsObserver.observe(document.querySelector(".stats-section"));
+      const statsSectionEl = document.querySelector(".stats-section");
+      if (statsSectionEl) {
+        statsObserver.observe(statsSectionEl);
+      }
 
       const BACKEND_BASE_URL = "http://66.42.120.203:8000";
       const SCAN_API_URL = `${BACKEND_BASE_URL}/api/scan`;
