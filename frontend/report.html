@@ -1133,9 +1133,15 @@
     </main>
 
     <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-      // Get data file path from query param
+      // Parse repo URL from query params
       const params = new URLSearchParams(window.location.search);
-      const dataFile = params.get("data") || "test.json";
+      const repoUrl = params.get("repo");
+
+      const BACKEND_BASE_URL = "http://66.42.120.203:8000";
+      const SCAN_URL = `${BACKEND_BASE_URL}/api/scan`;
+      const STATUS_URL = `${BACKEND_BASE_URL}/api/scan/status`;
+      const VULN_URL = `${BACKEND_BASE_URL}/api/vulnerabilities.json`;
+      const POLL_DELAY_MS = 2000;
 
       // Generate scan feathers
       const sf = document.getElementById("scanFeathers");
@@ -1149,135 +1155,186 @@
         sf.appendChild(f);
       }
 
-      // Scanning animation sequence
-      const scanSteps = [
-        {
-          text: "Releasing the Geese...",
-          status: "Connecting to analysis file...",
-          pct: 15,
-        },
-        {
-          text: "The Flock is Scanning...",
-          status: "Fetching JSON vulnerabilities...",
-          pct: 40,
-        },
-        {
-          text: "The Flock is Scanning...",
-          status: "Building report view...",
-          pct: 70,
-        },
-        {
-          text: "Almost Done!",
-          status: "Rendering findings...",
-          pct: 95,
-        },
-        {
-          text: "HONK! Scan Complete!",
-          status: "Report ready",
-          pct: 100,
-        },
-      ];
+      function setScanOverlay(text, statusText, pct) {
+        document.getElementById("scanText").textContent = text;
+        document.getElementById("scanStatus").textContent = statusText;
+        document.getElementById("scanFill").style.width = `${pct}%`;
+      }
 
-      let stepIndex = 0;
-      const scanInterval = setInterval(() => {
-        if (stepIndex >= scanSteps.length) {
-          clearInterval(scanInterval);
-          setTimeout(() => {
-            document.getElementById("scanOverlay").classList.add("hidden");
-            document.getElementById("reportPage").classList.add("visible");
-            loadReportJson();
-          }, 600);
-          return;
-        }
-        const s = scanSteps[stepIndex];
-        document.getElementById("scanText").textContent = s.text;
-        document.getElementById("scanStatus").textContent = s.status;
-        document.getElementById("scanFill").style.width = s.pct + "%";
-        stepIndex++;
-      }, 700);
+      function renderError(title, message) {
+        document.getElementById("reportStatus").textContent = title;
+        document.getElementById("vulnList").innerHTML = `
+          <div class="vuln-card info">
+            <div class="vuln-name">${title}</div>
+            <div class="vuln-desc">${message}</div>
+          </div>
+        `;
+        setScanOverlay("Scan stopped", message, 100);
+        document.getElementById("scanOverlay").classList.add("hidden");
+        document.getElementById("reportPage").classList.add("visible");
+      }
 
-      // Load the JSON analysis file and render findings
-      function loadReportJson() {
+      function renderVulnerabilities(payload) {
         const listEl = document.getElementById("vulnList");
         const titleEl = document.getElementById("reportStatus");
+        const items = Array.isArray(payload) ? payload : [];
 
-        fetch(dataFile)
-          .then((resp) => {
-            if (!resp.ok) {
-              throw new Error(`Unable to fetch ${dataFile}: ${resp.status}`);
-            }
-            return resp.json();
-          })
-          .then((data) => {
-            const entries = Object.entries(data || {});
-            const totalFindings = entries.reduce(
-              (count, [, ranges]) =>
-                count + (Array.isArray(ranges) ? ranges.length : 0),
-              0,
+        if (items.length === 0) {
+          titleEl.textContent = "No Vulnerabilities Detected";
+          listEl.innerHTML = `
+            <div class="vuln-card info">
+              <div class="vuln-name">No vulnerabilities were found.</div>
+            </div>
+          `;
+          setScanOverlay("Report complete", "No vulnerabilities found", 100);
+          return;
+        }
+
+        titleEl.textContent = "Vulnerabilities found";
+        listEl.innerHTML = "";
+
+        let totalRanges = 0;
+        items.forEach((item) => {
+          const file = item.file_name || "Unknown file";
+          const ranges = Array.isArray(item.line_numbers) ? item.line_numbers : [];
+          totalRanges += ranges.length;
+
+          const rangeHtml = ranges
+            .map(([start, end]) => {
+              if (start === end) {
+                return `<div class="vuln-file">${file}: line ${start}</div>`;
+              }
+              return `<div class="vuln-file">${file}: lines ${start}-${end}</div>`;
+            })
+            .join("");
+
+          listEl.insertAdjacentHTML(
+            "beforeend",
+            `
+            <div class="vuln-card info">
+              <div class="vuln-name">${file}</div>
+              ${rangeHtml}
+            </div>
+          `,
+          );
+        });
+
+        setScanOverlay(
+          "Report complete",
+          `${totalRanges} vulnerabilities found`,
+          100,
+        );
+      }
+
+      async function loadVulnerabilities() {
+        try {
+          const resp = await fetch(VULN_URL, { cache: "no-store" });
+          if (!resp.ok) {
+            throw new Error(`Unable to load vulnerabilities (${resp.status})`);
+          }
+          const payload = await resp.json();
+          document.getElementById("scanOverlay").classList.add("hidden");
+          document.getElementById("reportPage").classList.add("visible");
+          renderVulnerabilities(payload);
+        } catch (err) {
+          renderError(
+            "Unable to load report",
+            err.message || "Failed to fetch vulnerability results.",
+          );
+        }
+      }
+
+      async function pollScanStatus() {
+        try {
+          const resp = await fetch(STATUS_URL, { cache: "no-store" });
+          if (!resp.ok) {
+            throw new Error(`Status check failed (${resp.status})`);
+          }
+          const statusPayload = await resp.json();
+          const status = statusPayload.status || "idle";
+
+          if (status === "queued") {
+            setScanOverlay("Scan queued", "Waiting for the scanner to start...", 30);
+            setTimeout(pollScanStatus, POLL_DELAY_MS);
+            return;
+          }
+
+          if (status === "processing") {
+            setScanOverlay("The flock is scanning...", "Processing repository data...", 65);
+            setTimeout(pollScanStatus, POLL_DELAY_MS);
+            return;
+          }
+
+          if (status === "completed") {
+            setScanOverlay("HONK! Scan complete", "Fetching final report...", 90);
+            await loadVulnerabilities();
+            return;
+          }
+
+          if (status === "failed") {
+            renderError(
+              "Scan failed",
+              statusPayload.error || "The backend returned a failed scan state.",
             );
+            return;
+          }
 
-            if (totalFindings === 0) {
-              titleEl.textContent = "No Vulnerabilities Detected";
-              listEl.innerHTML = `
-                <div class="vuln-card info">
-                  <div class="vuln-name">No Vulnerabilities Detected</div>
-                </div>
-              `;
-              document.getElementById("scanStatus").textContent =
-                "No vulnerabilities found";
-              document.getElementById("scanText").textContent =
-                "Report complete";
+          setScanOverlay("Waiting on scanner", `Status: ${status}`, 50);
+          setTimeout(pollScanStatus, POLL_DELAY_MS);
+        } catch (err) {
+          renderError(
+            "Unable to poll scan status",
+            err.message || "Network error while checking scan status.",
+          );
+        }
+      }
+
+      async function startScanFlow() {
+        if (!repoUrl) {
+          renderError(
+            "No repository specified",
+            "Return to the home screen and start the scan from there.",
+          );
+          return;
+        }
+
+        setScanOverlay("Preparing the flock...", "Sending scan request...", 10);
+
+        try {
+          const resp = await fetch(SCAN_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ github_url: repoUrl }),
+          });
+
+          if (!resp.ok) {
+            const payload = await resp.json().catch(() => null);
+            if (resp.status === 409) {
+              setScanOverlay(
+                "Scan in progress",
+                payload?.detail || "Waiting for the current scan to finish...",
+                25,
+              );
+              pollScanStatus();
               return;
             }
+            throw new Error(
+              payload?.detail || payload?.message || `Failed to start scan (${resp.status})`,
+            );
+          }
 
-            titleEl.textContent = "Vulnerabilities found";
-            listEl.innerHTML = "";
-
-            entries.forEach(([file, ranges]) => {
-              if (!Array.isArray(ranges) || ranges.length === 0) {
-                return;
-              }
-
-              const rangeHtml = ranges
-                .map(([start, end]) => {
-                  if (start === end) {
-                    return `<div class="vuln-file">${file}: line ${start}</div>`;
-                  }
-                  return `<div class="vuln-file">${file}: lines ${start}-${end}</div>`;
-                })
-                .join("");
-
-              listEl.insertAdjacentHTML(
-                "beforeend",
-                `
-                <div class="vuln-card info">
-                  <div class="vuln-name">${file}</div>
-                  ${rangeHtml}
-                </div>
-              `,
-              );
-            });
-
-            document.getElementById("scanStatus").textContent =
-              `${totalFindings} vulnerabilities found`;
-            document.getElementById("scanText").textContent =
-              "Report complete";
-          })
-          .catch((err) => {
-            titleEl.textContent = "Unable to render report";
-            listEl.innerHTML = `
-              <div class="vuln-card info">
-                <div class="vuln-name">Unable to load analysis file.</div>
-                <div class="vuln-desc">${err.message}</div>
-              </div>
-            `;
-            document.getElementById("scanStatus").textContent =
-              "Error loading report";
-            document.getElementById("scanText").textContent =
-              "Failed to load results";
-            console.error(err);
-          });
+          await resp.json();
+          setScanOverlay("Scan queued", "Waiting for the scanner to begin...", 25);
+          pollScanStatus();
+        } catch (err) {
+          renderError(
+            "Unable to start scan",
+            err.message || "Network error while starting the scan.",
+          );
+        }
       }
+
+      startScanFlow();
     </script>
   </body>
 </html>

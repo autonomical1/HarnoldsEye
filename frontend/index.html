@@ -1878,20 +1878,25 @@
       );
       statsObserver.observe(document.querySelector(".stats-section"));
 
-      // Scan button handler
-      function handleScan() {
-        const url = document.getElementById("githubUrl").value.trim();
+      const BACKEND_BASE_URL = "http://66.42.120.203:8000";
+      const SCAN_API_URL = `${BACKEND_BASE_URL}/api/scan`;
+      const scanBtnDefaultHtml = `<svg viewBox="0 0 24 24">
+          <path
+            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+          />
+        </svg> SCAN REPO`;
+
+      async function handleScan() {
+        const urlInput = document.getElementById("githubUrl");
+        const url = urlInput.value.trim();
         const btn = document.getElementById("scanBtn");
 
         if (!url) {
-          document.getElementById("githubUrl").style.outline =
-            "2px solid var(--barn-red)";
-          document.getElementById("githubUrl").placeholder =
-            "⚠️  Please enter a GitHub URL first!";
+          urlInput.style.outline = "2px solid var(--barn-red)";
+          urlInput.placeholder = "⚠️  Please enter a GitHub URL first!";
           setTimeout(() => {
-            document.getElementById("githubUrl").style.outline = "";
-            document.getElementById("githubUrl").placeholder =
-              "Paste your GitHub repo URL here...";
+            urlInput.style.outline = "";
+            urlInput.placeholder = "Paste your GitHub repo URL here...";
           }, 2500);
           return;
         }
@@ -1904,11 +1909,32 @@
         }
 
         btn.classList.add("loading");
+        btn.disabled = true;
         btn.innerHTML = "🔍 SCANNING...";
 
-        setTimeout(() => {
-          window.location.replace("report.html?repo=" + encodeURIComponent(url));
-        }, 1200);
+        try {
+          const resp = await fetch(SCAN_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ github_url: url }),
+          });
+
+          if (!resp.ok) {
+            const payload = await resp.json().catch(() => null);
+            const message =
+              payload?.detail ||
+              payload?.message ||
+              `Scan request failed (${resp.status})`;
+            throw new Error(message);
+          }
+
+          window.location.href = `report.html?repo=${encodeURIComponent(url)}`;
+        } catch (err) {
+          btn.classList.remove("loading");
+          btn.disabled = false;
+          btn.innerHTML = scanBtnDefaultHtml;
+          alert(`Unable to start scan: ${err.message || err}`);
+        }
       }
 
       // Enter key on input
@@ -1920,9 +1946,8 @@
         document.getElementById("githubUrl").value = "";
         const btn = document.getElementById("scanBtn");
         btn.classList.remove("loading");
-        btn.innerHTML = `<svg viewBox="0 0 24 24">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-        </svg> SCAN REPO`;
+        btn.disabled = false;
+        btn.innerHTML = scanBtnDefaultHtml;
         if (window.location.search) {
           history.replaceState(null, "", window.location.pathname);
         }
