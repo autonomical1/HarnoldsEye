@@ -1171,6 +1171,64 @@
           transition-duration: 0.01s !important;
         }
       }
+
+      /* ========== NAVBAR CONGO LINE GEESE ========== */
+      .nav-goose-stage {
+        flex: 1;
+        overflow: hidden;
+        height: 54px;
+        position: relative;
+        margin-left: 20px;
+      }
+
+      /* Centering wrapper — only handles vertical positioning */
+      .nav-goose-center {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 100%;
+        transform: translateY(-50%);
+      }
+
+      .nav-goose-track {
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        animation: nav-goose-march 40s linear infinite;
+      }
+
+      .nav-goose {
+        display: inline-block;
+        flex-shrink: 0;
+        animation: nav-goose-walk 0.45s ease-in-out infinite alternate;
+      }
+      .nav-goose:nth-child(2n) { animation-delay: 0.07s; }
+      .nav-goose:nth-child(3n) { animation-delay: 0.14s; }
+      .nav-goose:nth-child(4n) { animation-delay: 0.21s; }
+      .nav-goose:nth-child(5n) { animation-delay: 0.28s; }
+      .nav-goose:nth-child(6n) { animation-delay: 0.35s; }
+
+      @keyframes nav-goose-walk {
+        from { transform: translateY(0px) rotate(-4deg); }
+        to   { transform: translateY(-5px) rotate(4deg); }
+      }
+
+      .nav-goose .foot-l { animation: foot-l 0.45s ease-in-out infinite; }
+      .nav-goose .foot-r { animation: foot-r 0.45s ease-in-out infinite; }
+
+      @keyframes foot-l {
+        0%,100% { transform: rotate(-20deg); transform-origin: 50% 0%; }
+        50%     { transform: rotate(15deg);  transform-origin: 50% 0%; }
+      }
+      @keyframes foot-r {
+        0%,100% { transform: rotate(15deg);  transform-origin: 50% 0%; }
+        50%     { transform: rotate(-20deg); transform-origin: 50% 0%; }
+      }
+
+      @keyframes nav-goose-march {
+        0%   { transform: translateX(-50%); }
+        100% { transform: translateX(0%); }
+      }
     </style>
   </head>
   <body>
@@ -1255,7 +1313,65 @@
         </svg>
         <div class="logo-text">Harnold's <span>Eye</span></div>
       </a>
+
+    <div class="nav-goose-stage" id="navGooseStage">
+      <div class="nav-goose-center">
+        <div class="nav-goose-track" id="navGooseTrack"></div>
+      </div>
+    </div>
     </nav>
+
+    <script>
+      function makeNavGooseSVG(tint) {
+      const bodyColors   = ['#FFF5E0','#FFEFD5','#FFF8EC','#FFFAF0','#FAEBD7'];
+      const beakColors   = ['#F0A030','#E8952A','#F5A828','#ED9A20','#F2A535'];
+      const sproutColors = ['#5CB85C','#4CAF50','#66BB6A','#43A047','#56A856'];
+      const i = tint % bodyColors.length;
+      return `<svg width="38" height="50" viewBox="0 0 60 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="30" cy="52" rx="20" ry="24" fill="${bodyColors[i]}" stroke="#3A3226" stroke-width="2.5"/>
+      <g class="beak">
+        <polygon points="48,36 56,39 48,42" fill="${beakColors[i]}" stroke="#3A3226" stroke-width="1.5" stroke-linejoin="round"/>
+      </g>
+      <circle cx="42" cy="34" r="2.5" fill="#3A3226"/>
+      <circle cx="43" cy="33.2" r="0.8" fill="white"/>
+      <ellipse cx="36" cy="40" rx="5" ry="3" fill="#FFB4B4" opacity="0.35"/>
+      <g class="sprout" style="animation:sprout-wiggle 3s ease-in-out infinite; transform-origin:30px 28px;">
+        <line x1="30" y1="28" x2="30" y2="14" stroke="${sproutColors[i]}" stroke-width="2.5" stroke-linecap="round"/>
+        <ellipse cx="25" cy="12" rx="5" ry="3.5" fill="${sproutColors[i]}" transform="rotate(-25,25,12)"/>
+        <ellipse cx="35" cy="12" rx="5" ry="3.5" fill="${sproutColors[i]}" transform="rotate(25,35,12)"/>
+      </g>
+      <ellipse cx="22" cy="52" rx="10" ry="7" fill="rgba(200,185,160,0.4)" stroke="#3A3226" stroke-width="1.5" transform="rotate(-10,22,52)"/>
+      <g class="foot-l" style="transform-origin:26px 74px;">
+        <line x1="26" y1="74" x2="20" y2="80" stroke="#F0A030" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="20" y1="80" x2="15" y2="79" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+        <line x1="20" y1="80" x2="18" y2="77" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+        <line x1="20" y1="80" x2="22" y2="77" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <g class="foot-r" style="transform-origin:34px 74px;">
+        <line x1="34" y1="74" x2="40" y2="80" stroke="#F0A030" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="40" y1="80" x2="46" y2="79" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+        <line x1="40" y1="80" x2="43" y2="77" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+        <line x1="40" y1="80" x2="38" y2="77" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+    }
+
+      function buildGooseTrack() {
+        const track = document.getElementById('navGooseTrack');
+        const stage = document.getElementById('navGooseStage');
+        const stageWidth = stage.offsetWidth || window.innerWidth;
+        const count = Math.ceil((stageWidth * 2) / 42) + 4;
+        let html = '';
+        for (let i = 0; i < count; i++) {
+          html += `<span class="nav-goose">${makeNavGooseSVG(i)}</span>`;
+        }
+        track.innerHTML = html + html; // duplicate for seamless loop
+      }
+
+      window.addEventListener('DOMContentLoaded', buildGooseTrack);
+      window.addEventListener('resize', buildGooseTrack);
+
+    </script>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -1675,131 +1791,7 @@
       <!-- Ground -->
       <div class="ground" id="ground"></div>
     </section>
-
-    <!-- Ticker Bar -->
-    <div class="ticker-bar">
-      <div class="ticker-track">
-        <div class="ticker-item"><span>🦆</span> SQL Injection Detected</div>
-        <div class="ticker-item"><span>🔒</span> XSS Vulnerability Patched</div>
-        <div class="ticker-item"><span>🪶</span> 47 Repos Scanned Today</div>
-        <div class="ticker-item">
-          <span>🛡️</span> Zero-Day Alert: CVE-2026-1337
-        </div>
-        <div class="ticker-item">
-          <span>✅</span> Dependency Updated Automatically
-        </div>
-        <div class="ticker-item">
-          <span>🦢</span> Flock AI Model v3.2 Active
-        </div>
-        <div class="ticker-item"><span>⚡</span> Mean Response Time: 2.3s</div>
-        <div class="ticker-item"><span>🎯</span> 99.7% Detection Accuracy</div>
-        <!-- Duplicate for seamless loop -->
-        <div class="ticker-item"><span>🦆</span> SQL Injection Detected</div>
-        <div class="ticker-item"><span>🔒</span> XSS Vulnerability Patched</div>
-        <div class="ticker-item"><span>🪶</span> 47 Repos Scanned Today</div>
-        <div class="ticker-item">
-          <span>🛡️</span> Zero-Day Alert: CVE-2026-1337
-        </div>
-        <div class="ticker-item">
-          <span>✅</span> Dependency Updated Automatically
-        </div>
-        <div class="ticker-item">
-          <span>🦢</span> Flock AI Model v3.2 Active
-        </div>
-        <div class="ticker-item"><span>⚡</span> Mean Response Time: 2.3s</div>
-        <div class="ticker-item"><span>🎯</span> 99.7% Detection Accuracy</div>
-      </div>
-    </div>
-
-    <!-- Stats Section -->
-    <section class="stats-section">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-number" id="stat1">0</div>
-          <div class="stat-label">Repos Scanned</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number" id="stat2">0</div>
-          <div class="stat-label">Vulns Found</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number" id="stat3">0%</div>
-          <div class="stat-label">Accuracy</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number" id="stat4">0s</div>
-          <div class="stat-label">Avg Scan Time</div>
-        </div>
-      </div>
     </section>
-
-    <!-- How It Works -->
-    <section class="how-section">
-      <h2 class="section-title">How The <span>Flock</span> Works</h2>
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-icon">🔗</div>
-          <div class="step-title">Link Your Repo</div>
-          <div class="step-desc">
-            Paste any GitHub URL — public or private. We handle auth seamlessly.
-          </div>
-        </div>
-        <div class="arrow-connector">→</div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div class="step-icon">🦆</div>
-          <div class="step-title">Release the Geese</div>
-          <div class="step-desc">
-            Our AI flock analyzes every file, dependency, and config for
-            vulnerabilities.
-          </div>
-        </div>
-        <div class="arrow-connector">→</div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-icon">🛡️</div>
-          <div class="step-title">Get Protected</div>
-          <div class="step-desc">
-            Receive a full report with severity ratings and auto-fix
-            suggestions.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="cta-section">
-      <div class="goose-parade">
-        <span class="parade-goose">🦆</span>
-        <span class="parade-goose">🦢</span>
-        <span class="parade-goose">🦆</span>
-        <span class="parade-goose">🦢</span>
-        <span class="parade-goose">🦆</span>
-      </div>
-      <div class="cta-box">
-        <h2 class="cta-title">Ready to Guard Your Code? 🦢</h2>
-        <p class="cta-desc">
-          Join thousands of developers who trust the flock to keep their code
-          safe.
-        </p>
-        <button
-          class="cta-btn"
-          onclick="
-            document.querySelector('.github-input').focus();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          "
-        >
-          🪶 START SCANNING FREE
-        </button>
-      </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-      <span>Harnold's Eye</span> © 2026 — Built with 🪶 — No bug escapes the
-      flock.
-    </footer>
 
     <script>
       // Generate stars
@@ -1915,7 +1907,7 @@
         btn.innerHTML = "🔍 SCANNING...";
 
         setTimeout(() => {
-          window.location.href = "report.html?repo=" + encodeURIComponent(url);
+          window.location.replace("report.html?repo=" + encodeURIComponent(url));
         }, 1200);
       }
 
@@ -1926,6 +1918,14 @@
 
       window.addEventListener("pageshow", function () {
         document.getElementById("githubUrl").value = "";
+        const btn = document.getElementById("scanBtn");
+        btn.classList.remove("loading");
+        btn.innerHTML = `<svg viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg> SCAN REPO`;
+        if (window.location.search) {
+          history.replaceState(null, "", window.location.pathname);
+        }
       });
     </script>
   </body>

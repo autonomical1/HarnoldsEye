@@ -1017,7 +1017,7 @@
 
     <!-- Navbar -->
     <nav class="navbar">
-      <a href="javascript:history.back()" class="nav-logo">
+      <a href="index.html" class="nav-logo">
         <svg
           width="36"
           height="36"
@@ -1091,7 +1091,7 @@
         </svg>
         <div class="logo-text">Harnold's <span>Eye</span></div>
       </a>
-      <a href="javascript:history.back()" class="back-btn">← New Scan</a>
+      <a href="index.html" class="back-btn">← New Scan</a>
     </nav>
 
     <!-- Report Content -->
@@ -1351,7 +1351,7 @@
             <span class="vuln-badge medium">Medium</span>
           </div>
           <div class="vuln-desc">
-            lodash@4.17.15 has a known prototype pollution vulnerability
+            <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bcd0d3d8ddcfd4fc88928d8b928d89">[email&#160;protected]</a> has a known prototype pollution vulnerability
             (CVE-2020-8203). Current version is 4.17.21.
           </div>
           <div>
@@ -1364,7 +1364,7 @@
             <div class="vuln-fix-text">
               Update lodash to the latest patched version.
             </div>
-            <code class="vuln-fix-code">npm install lodash@4.17.21</code>
+            <code class="vuln-fix-code">npm install <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="eb87848f8a9883abdfc5dadcc5d9da">[email&#160;protected]</a></code>
           </div>
         </div>
 
@@ -1620,7 +1620,7 @@
       flock.
     </footer>
 
-    <script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
       // Get repo URL from query param
       const params = new URLSearchParams(window.location.search);
       const repoUrl = params.get("repo") || "https://github.com/example/my-app";
@@ -1733,12 +1733,15 @@
 
       function animateCount(id, target, delay) {
         setTimeout(() => {
-          let val = 0;
+          let current = 0;
           const interval = setInterval(() => {
-            val++;
-            document.getElementById(id).textContent = val;
-            if (val >= target) clearInterval(interval);
-          }, 150);
+            current += 1;
+            if (current >= target) {
+              current = target;
+              clearInterval(interval);
+            }
+            document.getElementById(id).textContent = current;
+          }, 30);
         }, delay);
       }
     </script>
