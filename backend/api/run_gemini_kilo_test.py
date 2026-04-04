@@ -45,7 +45,7 @@ def main() -> int:
     _load_env_file(_ENV_FILE)
 
     # Older env files may pin retired model ids (404 → no billable usage).
-    os.environ.setdefault("GEMINI_MODEL", "gemini-2.5-flash")
+    os.environ.setdefault("GEMINI_MODEL", "gemini-flash-latest")
 
     if not os.environ.get("GEMINI_API_KEY", "").strip():
         print(

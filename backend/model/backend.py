@@ -489,15 +489,25 @@ def extract_c_cpp_files(repo_path: str) -> List[Dict]:
     c_cpp_extensions = {".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh"}
     files = []
 
+    skip_dirs = {
+        ".git",
+        ".github",
+        "build",
+        "cmake-build-debug",
+        "__pycache__",
+        ".pytest_cache",
+        "node_modules",
+        "third_party",
+        "vendor",
+        "external",
+        "deps",
+        "vcpkg_installed",
+    }
     for root, dirs, filenames in os.walk(repo_path):
-        # Skip common non-source directories
-        dirs[:] = [d for d in dirs if d not in {
-            '.git', '.github', 'build', 'cmake-build-debug',
-            '__pycache__', '.pytest_cache', 'node_modules',
-            'third_party', 'vendor', 'external', 'deps', 'vcpkg_installed',
-        }]
-        
-        for filename in filenames:
+        # Deterministic traversal (stable snippet order, percentile cutoffs, Gemini batching).
+        dirs[:] = sorted(d for d in dirs if d not in skip_dirs)
+
+        for filename in sorted(filenames):
             ext = Path(filename).suffix.lower()
             if ext not in c_cpp_extensions:
                 continue
@@ -532,6 +542,7 @@ def extract_c_cpp_files(repo_path: str) -> List[Dict]:
                 print(f"⊘ Error reading {relative_path}: {e}")
                 continue
     
+    files.sort(key=lambda x: str(x.get("file_path") or "").replace("\\", "/"))
     mode = "C/C++ sources + headers" if include_headers else "C/C++ sources only (.c/.cpp/.cc/.cxx)"
     print(f"✓ Found {len(files)} file(s) ({mode})")
     return files
@@ -942,6 +953,39 @@ def _file_function_spans(lines: List[str], file_path: str) -> Dict[str, Tuple[in
     return out
 
 
+def _is_likely_c_forward_declaration(line: str, func_name: str) -> bool:
+    """
+    True for lines like 'void Foo(char *x);' — same pattern as a call site match on 'Foo('
+    but is a prototype, not an invocation.
+    """
+    s = (line or "").strip()
+    if not s or s.startswith("#"):
+        return False
+    if "{" in s:
+        return False
+    if not s.endswith(";"):
+        return False
+    if func_name not in s:
+        return False
+    if not re.search(
+        r"\b" + re.escape(func_name) + r"\b\s*\([^)]*\)\s*;\s*$",
+        s,
+    ):
+        return False
+    idx = s.index(func_name)
+    before = s[:idx].rstrip()
+    return bool(
+        re.search(
+            r"(?:\bvoid\b|\bint\b|\bchar\b|\bshort\b|\blong\b|\bfloat\b|\bdouble\b|"
+            r"\bDWORD\b|\bWORD\b|\bBYTE\b|\bBOOL\b|\bHANDLE\b|\bWINAPI\b|\bCALLBACK\b|"
+            r"\bsize_t\b|\bssize_t\b|\bunsigned\b|\bsigned\b|\bstatic\b|\bextern\b|"
+            r"\bconst\b|\bvolatile\b|\bstruct\b|\benum\b)\s*$",
+            before,
+            re.I,
+        )
+    )
+
+
 def _expand_findings_with_call_sites(
     findings: List[Dict[str, Any]],
     files: List[Dict],
@@ -997,6 +1041,8 @@ def _expand_findings_with_call_sites(
             if def_lo <= ln_1 <= def_hi:
                 continue
             if not re.search(r"\b" + re.escape(sink_name) + r"\s*\(", line_text):
+                continue
+            if _is_likely_c_forward_declaration(line_text, sink_name):
                 continue
             key = (fp, ln_1, sink_name)
             if key in seen_call:
@@ -1149,7 +1195,15 @@ Respond with **only** one JSON object — no markdown, no prose, no code fences.
 Required shape:
 - "vulnerable": boolean
 - "line_numbers": array of [start_line, end_line] pairs (inclusive), using **1-based line numbers in the real source file** exactly as the user message states for the excerpt (not line numbers inside the fenced code block).
-- "vulnerability_type": short string when vulnerable is true — use the **most specific accurate** label (snake_case or plain English). Examples: "heap_buffer_overflow", "stack_buffer_overflow", "integer_overflow", "integer_underflow", "use_after_free", "double_free", "unchecked_malloc", "divide_by_zero", "out_of_bounds_read", "out_of_bounds_write", "format_string", "memory_leak", "command_injection", "null_pointer_dereference". Do **not** label everything "stack_buffer_overflow" when the flaw is heap, arithmetic, lifetime, or logic. Use "" when vulnerable is false.
+- "vulnerability_type": short string when vulnerable is true — name the **primary defect by mechanism**, not by the most familiar keyword in the snippet.
+
+**Classification (pick the best single label for the main bug):**
+- Memory safety: "heap_buffer_overflow", "stack_buffer_overflow", "out_of_bounds_read", "out_of_bounds_write", "use_after_free", "double_free", "uninitialized_read", "null_pointer_dereference".
+- Arithmetic / allocation: "integer_overflow", "integer_underflow", "sign_conversion_error", "unchecked_malloc" (or missing NULL check before use), "allocation_size_mismatch".
+- API misuse: "format_string" (e.g. printf/scanf/snprintf with tainted format or non-NUL-terminated %s), "command_injection", "sql_injection" (native DB APIs), "path_traversal", "race_condition" / "time_of_check_time_of_use" when clearly shown.
+- Logic / availability: "divide_by_zero", "infinite_loop_resource_exhaustion", "memory_leak" (e.g. repeated alloc without free on reachable path), "stack_exhaustion" (unbounded recursion / huge stack use).
+
+**Rules:** If the bug is **integer wrap / bad size** leading to a bad alloc or copy, label **integer_overflow** or **integer_underflow**, not "stack_buffer_overflow". If the bug is **use after free** or **double free**, use those labels even if memcpy/strcpy appears nearby. If **printf/scanf** trusts non-terminated or attacker-controlled strings, prefer **format_string** or **out_of_bounds_read** as appropriate. Do **not** default to "stack_buffer_overflow" when the failure mode is heap, lifetime, arithmetic, format, or injection. Use "" when vulnerable is false.
 
 If there is no genuine security issue: {"vulnerable": false, "line_numbers": [], "vulnerability_type": ""}.
 If there is: {"vulnerable": true, "line_numbers": [[a,b], ...], "vulnerability_type": "..."} with the **smallest** spans that pinpoint the flaw."""
@@ -1194,6 +1248,16 @@ def _gemini_error_keeps_finding() -> bool:
     return v in ("keep", "true", "1", "yes")
 
 
+def _gemini_keep_ml_on_reject() -> bool:
+    """
+    When Gemini returns vulnerable:false for an ML/heuristic chunk:
+    False -> drop (default; LLM gate reduces false positives).
+    True  -> keep the full ML chunk spans anyway (higher recall if the model over-filters).
+    """
+    v = os.environ.get("GEMINI_KEEP_ML_ON_REJECT", "0").strip().lower()
+    return v in ("1", "true", "yes", "on", "keep")
+
+
 def _gemini_debug_enabled() -> bool:
     return os.environ.get("GEMINI_DEBUG", "").strip().lower() in (
         "1",
@@ -1212,16 +1276,18 @@ def _gemini_user_prompt(
 ) -> str:
     ex_vuln = (
         '{"vulnerable": true, "line_numbers": [[12, 14]], '
-        '"vulnerability_type": "integer_overflow"}'
+        '"vulnerability_type": "use_after_free"}'
     )
     ex_safe = '{"vulnerable": false, "line_numbers": [], "vulnerability_type": ""}'
     return f"""A static/ML scanner flagged the following code region as suspicious.
 
-Decide whether this excerpt contains a **real security vulnerability** relevant to C or C++ (for example: buffer overflow, missing bounds on external input, format-string misuse, command/SQL injection in native code paths, obvious use-after-free, integer overflow leading to unsafe allocation or indexing, or other exploitable flaws). Do **not** treat style, readability, or hypothetical issues with no plausible attack path as vulnerabilities.
+**Your job:** Decide if there is a **real, exploitable or clearly unsafe** C/C++ security issue in the excerpt. Before answering, **briefly consider** (mentally) whether any of these apply: unchecked memcpy/strcpy sizing; integer overflow/underflow in sizes or indices; malloc/calloc without NULL check then use; double free or use-after-free; divide by zero or shift issues; printf/scanf/fscanf with tainted format or buffers that may lack a terminating NUL; command/system/popen/exec with untrusted strings; OOB array/pointer access; obvious resource leak on a security-relevant path; unbounded recursion or allocation loops.
 
-If the path or context looks like a lab/fuzzer/training repo but the code still uses dangerous APIs or missing bounds, treat it as **vulnerable** for those constructs (see system instructions).
+Do **not** treat style, readability, or hypothetical issues with no plausible attack path as vulnerabilities.
 
-ML-suggested label (may be wrong): {ml_category}
+If the path or context looks like a lab/fuzzer/training repo but the code still has a real flaw above, still mark **vulnerable** (see system instructions).
+
+ML-suggested label (often generic or wrong — **do not mirror it** if a more accurate type exists): {ml_category}
 File path: {file_path}
 
 **Line map:** The excerpt below corresponds to **file lines {excerpt_line_start}-{excerpt_line_end}** (inclusive, 1-based). Every [start,end] in "line_numbers" must fall within that inclusive range and refer to the **real file**, not the line index inside the code fence.
@@ -1235,7 +1301,7 @@ Code:
 1. Respond with **only** one JSON object.
 2. Shape: {ex_vuln} when there is a real vulnerability, or {ex_safe} when there is not.
 3. "line_numbers" must list minimal inclusive spans (file line numbers) covering only the vulnerable code; use [] when vulnerable is false.
-4. "vulnerability_type" must name the **primary** flaw with a **specific** category matching the actual bug (heap vs stack, lifetime, arithmetic, etc.); never default to "stack_buffer_overflow" unless the defect is truly an unchecked write on the stack. Use "" when vulnerable is false."""
+4. "vulnerability_type" must be the **mechanism-accurate** primary category from the system list (e.g. use_after_free, format_string, integer_overflow). **Do not** output "stack_buffer_overflow" unless the core bug is actually an unchecked stack buffer write from missing bounds on a stack array. Use "" when vulnerable is false."""
 
 
 def _parse_gemini_vulnerability_type(raw: Any) -> str:
@@ -1382,7 +1448,7 @@ def gemini_evaluate_chunk(
     if not api_key:
         return {"vulnerable": True, "line_numbers": [], "vulnerability_type": ""}
 
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest").strip()
     max_chars = max(4000, int(os.environ.get("GEMINI_MAX_CHUNK_CHARS", "120000")))
     code = full_code if len(full_code) <= max_chars else full_code[:max_chars] + "\n/* [truncated] */\n"
     dbg = _gemini_debug_enabled()
@@ -1405,31 +1471,60 @@ def gemini_evaluate_chunk(
     except TypeError:
         model = genai.GenerativeModel(model_name)
         prompt = _gemini_system_instruction_text() + "\n\n" + user_prompt
-    generation_config = {
+    json_mode = os.environ.get("GEMINI_JSON_RESPONSE", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
+    max_out = max(256, int(os.environ.get("GEMINI_MAX_OUTPUT_TOKENS", "1024")))
+    base_cfg = {
         "temperature": 0.0,
-        "max_output_tokens": 512,
+        "top_p": 1.0,
+        "top_k": 1,
+        "candidate_count": 1,
+        "max_output_tokens": max_out,
     }
+    cfg_attempts: List[Dict[str, Any]] = []
+    if json_mode:
+        cfg_attempts.append({**base_cfg, "response_mime_type": "application/json"})
+    cfg_attempts.append(dict(base_cfg))
+
     if dbg:
         print(
             f"→ Gemini request model={model_name!r} file={file_path!r} "
-            f"code_chars={len(code)} prompt_chars={len(prompt)}"
+            f"code_chars={len(code)} prompt_chars={len(prompt)} json_mode={json_mode!r}"
         )
-    try:
-        resp = model.generate_content(
-            prompt,
-            generation_config=generation_config,
-        )
+    resp = None
+    for attempt_i, cfg_kw in enumerate(cfg_attempts):
         try:
-            text = (resp.text or "").strip()
-        except ValueError:
-            text = ""
-        if dbg:
-            um = getattr(resp, "usage_metadata", None)
-            print(f"← Gemini usage_metadata={um!r}")
-            print(f"← Gemini raw text={text!r}")
-    except Exception as e:
-        print(f"⚠ Gemini API error ({file_path}): {e}")
+            generation_config = genai.GenerationConfig(**cfg_kw)
+            resp = model.generate_content(
+                prompt,
+                generation_config=generation_config,
+            )
+            break
+        except Exception as e:
+            if attempt_i + 1 < len(cfg_attempts):
+                if dbg:
+                    print(
+                        f"⚠ Gemini config retry ({file_path}): {e!r} "
+                        f"(dropping response_mime_type=json)"
+                    )
+                continue
+            print(f"⚠ Gemini API error ({file_path}): {e}")
+            return None
+
+    if resp is None:
         return None
+    try:
+        text = (resp.text or "").strip()
+    except ValueError:
+        text = ""
+    if dbg:
+        um = getattr(resp, "usage_metadata", None)
+        print(f"← Gemini usage_metadata={um!r}")
+        print(f"← Gemini raw text={text!r}")
 
     parsed = _parse_gemini_json_response(text)
     if parsed is None:
@@ -1490,7 +1585,13 @@ def _gemini_rows_for_single_item(item: Dict[str, Any]) -> List[Dict[str, Any]]:
         }
 
     if not verdict.get("vulnerable"):
-        return []
+        if not _gemini_keep_ml_on_reject():
+            return []
+        verdict = {
+            "vulnerable": True,
+            "line_numbers": [],
+            "vulnerability_type": "",
+        }
 
     raw_pairs = verdict.get("line_numbers") or []
     ranges = _sanitize_gemini_line_numbers(
@@ -2106,6 +2207,17 @@ def scan_repository(
         )
         report = consolidate_findings(vulnerable_snippets)
         enrich_report_with_code_context(report, files)
+        _emit_scan_progress(
+            progress_callback,
+            phase="nvd_cve_lookup",
+            detail="Optional NIST NVD CVE lookup (NVD_CVE_LOOKUP=1)",
+        )
+        try:
+            import nvd_cve
+
+            nvd_cve.enrich_report_with_nvd_cves(report)
+        except Exception as e:
+            print(f"⚠ NVD CVE enrichment skipped: {e}")
 
         # Add metadata
         report["github_url"] = github_url

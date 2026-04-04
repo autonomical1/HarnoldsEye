@@ -116,7 +116,7 @@ def _gemini_verify_active() -> bool:
 def report_to_frontend_payload(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Build [{ "file_name", "findings": [{ "line_numbers", "vulnerability_type", optional "code_context" }] }, ...]
-    from backend consolidated report (after enrich_report_with_code_context). Omits files with no ranges.
+    from backend consolidated report (after enrich + optional NVD). Omits files with no ranges.
     """
     out: List[Dict[str, Any]] = []
     for file_entry in report.get("files") or []:
@@ -160,6 +160,9 @@ def report_to_frontend_payload(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             ctx = v.get("code_context")
             if isinstance(ctx, list) and ctx:
                 fd["code_context"] = ctx
+            rc = v.get("related_cves")
+            if isinstance(rc, list) and rc:
+                fd["related_cves"] = rc
             findings.append(fd)
         if findings:
             out.append({"file_name": path, "findings": findings})
@@ -230,6 +233,9 @@ def load_vulnerability_json_from_disk() -> None:
                         ctx = f.get("code_context")
                         if isinstance(ctx, list) and ctx:
                             entry["code_context"] = ctx
+                        rc = f.get("related_cves")
+                        if isinstance(rc, list) and rc:
+                            entry["related_cves"] = rc
                         clean.append(entry)
                 if clean:
                     out.append({"file_name": fn, "findings": clean})

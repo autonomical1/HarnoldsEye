@@ -608,6 +608,105 @@
         margin-bottom: 0;
       }
 
+      /* Collapsible sections under each finding (source + CVEs) */
+      .vuln-finding-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        margin-top: 0.45rem;
+      }
+      .vuln-details {
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
+      .vuln-details--cve {
+        border-color: rgba(58, 175, 255, 0.22);
+        background: rgba(58, 175, 255, 0.05);
+      }
+      .vuln-details__summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 0.48rem 0.7rem;
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.72);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        user-select: none;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .vuln-details__summary::-webkit-details-marker {
+        display: none;
+      }
+      .vuln-details__summary::before {
+        content: "▸";
+        font-size: 0.65rem;
+        opacity: 0.75;
+        transition: transform 0.18s ease;
+        flex-shrink: 0;
+      }
+      .vuln-details[open] > .vuln-details__summary::before {
+        transform: rotate(90deg);
+      }
+      .vuln-details__summary:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.88);
+      }
+      .vuln-details--cve .vuln-details__summary:hover {
+        background: rgba(58, 175, 255, 0.1);
+      }
+      .vuln-details__hint {
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0.02em;
+        color: rgba(255, 255, 255, 0.42);
+        font-size: 0.68rem;
+      }
+      .vuln-details__body {
+        padding: 0 0.45rem 0.55rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+      }
+      .vuln-details__body--cve {
+        padding-top: 0.35rem;
+      }
+      .vuln-cve-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .vuln-cve-item {
+        margin-bottom: 0.45rem;
+        font-size: 0.72rem;
+        line-height: 1.35;
+      }
+      .vuln-cve-item:last-child {
+        margin-bottom: 0;
+      }
+      .vuln-cve-link {
+        color: var(--sky);
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .vuln-cve-link:hover {
+        text-decoration: underline;
+      }
+      .vuln-cve-pub {
+        margin-left: 0.45rem;
+        color: rgba(255, 255, 255, 0.38);
+        font-size: 0.65rem;
+      }
+      .vuln-cve-desc {
+        margin-top: 0.2rem;
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 0.68rem;
+        line-height: 1.4;
+      }
       .vuln-blame {
         display: flex;
         flex-direction: column;
@@ -659,6 +758,57 @@
         color: rgba(230, 238, 248, 0.92);
         line-height: 1.48;
         padding-top: 0.05rem;
+      }
+      .vuln-blame-code-fence {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: inherit;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0;
+        border: none !important;
+        border-radius: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: inherit;
+      }
+      /* Prism token colors (scoped — no default prism.css loaded) */
+      .vuln-blame .token.comment,
+      .vuln-blame .token.block-comment,
+      .vuln-blame .token.prolog,
+      .vuln-blame .token.cdata {
+        color: rgba(120, 170, 150, 0.85);
+        font-style: italic;
+      }
+      .vuln-blame .token.string,
+      .vuln-blame .token.char,
+      .vuln-blame .token.attr-value {
+        color: rgba(130, 210, 160, 0.95);
+      }
+      .vuln-blame .token.number,
+      .vuln-blame .token.boolean {
+        color: rgba(255, 200, 120, 0.95);
+      }
+      .vuln-blame .token.keyword,
+      .vuln-blame .token.constant,
+      .vuln-blame .token.builtin {
+        color: #c792ea;
+        font-weight: 600;
+      }
+      .vuln-blame .token.class-name {
+        color: #ffcb6b;
+      }
+      .vuln-blame .token.function {
+        color: #82aaff;
+      }
+      .vuln-blame .token.macro.property,
+      .vuln-blame .token.directive {
+        color: #89ddff;
+      }
+      .vuln-blame .token.operator {
+        color: rgba(200, 220, 255, 0.75);
+      }
+      .vuln-blame .token.punctuation {
+        color: rgba(200, 210, 230, 0.65);
       }
       .vuln-blame-meta {
         text-align: right;
@@ -1257,6 +1407,9 @@
       </div>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-cpp.min.js"></script>
     <script>
       // Parse repo URL from query params
       const params = new URLSearchParams(window.location.search);
@@ -1330,6 +1483,23 @@
           .replace(/"/g, "&quot;");
       }
 
+      /** C/C++ syntax highlight for blame lines; falls back to escaped plain text if Prism fails. */
+      function highlightCppSource(raw) {
+        const s = raw != null ? String(raw) : "";
+        if (
+          typeof Prism !== "undefined" &&
+          Prism.languages &&
+          Prism.languages.cpp
+        ) {
+          try {
+            return Prism.highlight(s, Prism.languages.cpp, "cpp");
+          } catch (e) {
+            /* offline or grammar error */
+          }
+        }
+        return escapeHtml(s);
+      }
+
       function formatVulnTypeLabel(t) {
         if (!t || typeof t !== "string") return "";
         const words = t.replace(/_/g, " ").trim().split(/\s+/);
@@ -1368,12 +1538,72 @@
               " ",
             )}"><span class="vuln-blame-gutter">${escapeHtml(
               gutter,
-            )}</span><span class="vuln-blame-code">${escapeHtml(
+            )}</span><span class="vuln-blame-code"><code class="language-cpp vuln-blame-code-fence">${highlightCppSource(
               code,
-            )}</span>${meta}</div>`;
+            )}</code></span>${meta}</div>`;
           })
           .join("");
         return `<div class="vuln-blame" aria-label="Source context">${rows}</div>`;
+      }
+
+      /** `<ul class="vuln-cve-list">…</ul>` or "" (for use inside collapsible CVE panel). */
+      function renderRelatedCvesListHtml(f) {
+        const list = f.related_cves;
+        if (!Array.isArray(list) || !list.length) return "";
+        const rows = list
+          .map((c) => {
+            if (!c || typeof c !== "object") return "";
+            const id = c.cve_id != null ? String(c.cve_id).trim() : "";
+            if (!id || !/^CVE-\d{4}-\d+$/.test(id)) return "";
+            let url = c.url != null ? String(c.url).trim() : "";
+            if (!/^https:\/\/nvd\.nist\.gov\/vuln\/detail\/CVE-\d{4}-\d+$/i.test(url)) {
+              url = `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(id)}`;
+            }
+            const rawDesc =
+              c.description != null ? String(c.description) : "";
+            const desc = rawDesc
+              ? escapeHtml(rawDesc.slice(0, 300))
+              : "";
+            const pub =
+              c.published != null
+                ? escapeHtml(String(c.published).slice(0, 20))
+                : "";
+            return `<li class="vuln-cve-item"><a class="vuln-cve-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(id)}</a>${
+              pub
+                ? `<span class="vuln-cve-pub">${pub}</span>`
+                : ""
+            }${
+              desc
+                ? `<div class="vuln-cve-desc">${desc}${
+                    rawDesc.length > 300 ? "…" : ""
+                  }</div>`
+                : ""
+            }</li>`;
+          })
+          .filter(Boolean)
+          .join("");
+        if (!rows) return "";
+        return `<ul class="vuln-cve-list">${rows}</ul>`;
+      }
+
+      /** Collapsible source + CVE blocks under each line finding (closed by default). */
+      function renderFindingCollapsibleSections(blameHtml, cvesListHtml) {
+        const hasBlame = Boolean(blameHtml);
+        const hasCves = Boolean(cvesListHtml);
+        if (!hasBlame && !hasCves) return "";
+        const parts = ['<div class="vuln-finding-sections">'];
+        if (hasBlame) {
+          parts.push(
+            `<details class="vuln-details vuln-details--blame"><summary class="vuln-details__summary">Source context</summary><div class="vuln-details__body">${blameHtml}</div></details>`,
+          );
+        }
+        if (hasCves) {
+          parts.push(
+            `<details class="vuln-details vuln-details--cve"><summary class="vuln-details__summary">Related CVEs <span class="vuln-details__hint">· NVD</span></summary><div class="vuln-details__body vuln-details__body--cve">${cvesListHtml}</div></details>`,
+          );
+        }
+        parts.push("</div>");
+        return parts.join("");
       }
 
       function renderError(title, message) {
@@ -1447,10 +1677,13 @@
                   callHint = `<div class="vuln-desc vuln-call-hint">Call site → ${fn} (${sinkPart})</div>`;
                 }
                 const blame = renderCodeContextBlock(f, typ);
-                if (blame) {
-                  return `<div class="vuln-finding"><div class="vuln-finding-head"><div class="vuln-file">${fileEsc}: ${linePart}</div>${callHint ? `<div class="vuln-finding-meta">${callHint}</div>` : ""}</div>${blame}</div>`;
-                }
-                return `<div class="vuln-row"><div class="vuln-file">${fileEsc}: ${linePart}</div>${typeBlock}${callHint}</div>`;
+                const cvesList = renderRelatedCvesListHtml(f);
+                const sections = renderFindingCollapsibleSections(blame, cvesList);
+                return `<div class="vuln-finding"><div class="vuln-finding-head"><div class="vuln-file">${fileEsc}: ${linePart}</div>${typeBlock}${
+                  callHint
+                    ? `<div class="vuln-finding-meta">${callHint}</div>`
+                    : ""
+                }</div>${sections}</div>`;
               })
               .join("");
           } else {
