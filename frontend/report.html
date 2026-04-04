@@ -870,6 +870,106 @@
           transition-duration: 0.01s !important;
         }
       }
+
+      /* Minimal report-specific styling */
+      .bg-grid,
+      .bg-dots,
+      .navbar,
+      .report-goose,
+      .footer {
+        display: none !important;
+      }
+
+      .report-page {
+        padding: 80px 24px 40px;
+        max-width: 900px;
+        margin: 0 auto;
+        min-height: 100vh;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.45s ease, transform 0.45s ease;
+      }
+      .report-page.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .report-title-area {
+        margin-bottom: 32px;
+        text-align: center;
+      }
+
+      .report-title {
+        font-family: "Lilita One", cursive;
+        font-size: clamp(2.2rem, 5vw, 3.4rem);
+        letter-spacing: -0.04em;
+        color: #ffffff;
+        margin-bottom: 10px;
+      }
+
+      .vuln-list {
+        display: grid;
+        gap: 16px;
+      }
+
+      .vuln-card {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 24px;
+        padding: 22px 24px;
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
+      }
+
+      .vuln-name {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #ffffff;
+        margin-bottom: 10px;
+      }
+
+      .vuln-desc {
+        color: rgba(255, 255, 255, 0.75);
+        line-height: 1.6;
+        margin-bottom: 14px;
+      }
+
+      .vuln-file {
+        display: block;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.95rem;
+        color: #c5e8ff;
+        background: rgba(58, 175, 255, 0.12);
+        padding: 12px 14px;
+        border-radius: 14px;
+        margin-bottom: 10px;
+        word-break: break-word;
+      }
+
+      .report-loading {
+        border-color: rgba(58, 175, 255, 0.25);
+      }
+
+      .report-back-btn {
+        display: inline-block;
+        padding: 10px 18px;
+        margin-bottom: 24px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        font-family: "Nunito", sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+
+      .report-back-btn:hover {
+        background: rgba(255, 255, 255, 0.18);
+        border-color: rgba(255, 217, 61, 0.6);
+        color: #ffd93d;
+      }
     </style>
   </head>
   <body>
@@ -1015,619 +1115,27 @@
       <div class="scan-status" id="scanStatus">Initializing flock...</div>
     </div>
 
-    <!-- Navbar -->
-    <nav class="navbar">
-      <a href="index.html" class="nav-logo">
-        <svg
-          width="36"
-          height="36"
-          viewBox="0 0 100 100"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <ellipse
-            cx="50"
-            cy="55"
-            rx="32"
-            ry="36"
-            fill="#FFF5E0"
-            stroke="#3A3226"
-            stroke-width="4"
-          />
-          <ellipse
-            cx="50"
-            cy="48"
-            rx="10"
-            ry="5"
-            fill="#F0A030"
-            stroke="#3A3226"
-            stroke-width="2.5"
-          />
-          <circle cx="40" cy="38" r="3.5" fill="#3A3226" />
-          <circle cx="60" cy="38" r="3.5" fill="#3A3226" />
-          <line
-            x1="50"
-            y1="22"
-            x2="50"
-            y2="10"
-            stroke="#5CB85C"
-            stroke-width="3"
-            stroke-linecap="round"
-          />
-          <ellipse
-            cx="44"
-            cy="8"
-            rx="5"
-            ry="4"
-            fill="#5CB85C"
-            transform="rotate(-30, 44, 8)"
-          />
-          <ellipse
-            cx="56"
-            cy="8"
-            rx="5"
-            ry="4"
-            fill="#5CB85C"
-            transform="rotate(30, 56, 8)"
-          />
-          <ellipse
-            cx="38"
-            cy="92"
-            rx="8"
-            ry="4"
-            fill="#F0A030"
-            stroke="#3A3226"
-            stroke-width="2"
-          />
-          <ellipse
-            cx="62"
-            cy="92"
-            rx="8"
-            ry="4"
-            fill="#F0A030"
-            stroke="#3A3226"
-            stroke-width="2"
-          />
-        </svg>
-        <div class="logo-text">Harnold's <span>Eye</span></div>
-      </a>
-      <a href="index.html" class="back-btn">← New Scan</a>
-    </nav>
 
-    <!-- Report Content -->
+
     <main class="report-page" id="reportPage">
-      <!-- Header -->
-      <div class="report-header">
-        <div class="report-header-left">
-          <h1 class="report-title">🛡️ Scan Report</h1>
-          <div class="report-repo" id="repoName">github.com/user/repo</div>
-          <div class="report-meta">
-            <div class="meta-item">🕐 Scanned just now</div>
-            <div class="meta-item">📂 147 files analyzed</div>
-            <div class="meta-item">🌿 Branch: main</div>
-            <div class="meta-item">⏱️ 2.3s scan time</div>
-          </div>
-        </div>
-        <div class="report-score-box">
-          <div class="score-label">Security Score</div>
-          <div class="score-ring">
-            <svg viewBox="0 0 100 100">
-              <circle class="score-ring-bg" cx="50" cy="50" r="42" />
-              <circle
-                class="score-ring-fill"
-                id="scoreRing"
-                cx="50"
-                cy="50"
-                r="42"
-                stroke="#FF8A2B"
-                stroke-dasharray="263.9"
-                stroke-dashoffset="263.9"
-              />
-            </svg>
-            <div class="score-value" id="scoreVal">0</div>
-          </div>
-          <div
-            class="score-grade"
-            id="scoreGrade"
-            style="color: var(--barn-orange)"
-          >
-            —
-          </div>
-        </div>
+      <a href="index.html" class="report-back-btn">← New Scan</a>
+      <div class="report-title-area">
+        <h1 class="report-title" id="reportStatus">Loading vulnerability status...</h1>
       </div>
-
-      <!-- Severity Cards -->
-      <div class="severity-grid">
-        <div class="severity-card critical">
-          <div class="severity-count" id="critCount">0</div>
-          <div class="severity-label">Critical</div>
-        </div>
-        <div class="severity-card high">
-          <div class="severity-count" id="highCount">0</div>
-          <div class="severity-label">High</div>
-        </div>
-        <div class="severity-card medium">
-          <div class="severity-count" id="medCount">0</div>
-          <div class="severity-label">Medium</div>
-        </div>
-        <div class="severity-card low">
-          <div class="severity-count" id="lowCount">0</div>
-          <div class="severity-label">Low</div>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="actions-bar">
-        <button
-          class="action-btn primary"
-          onclick="
-            alert(
-              '🦆 HONK! Auto-fix PR would be created for 4 vulnerabilities.\n\n(Demo mode)',
-            )
-          "
-        >
-          🔧 Auto-Fix 4 Issues
-        </button>
-        <button
-          class="action-btn secondary"
-          onclick="alert('📋 Report copied to clipboard!\n\n(Demo mode)')"
-        >
-          📋 Copy Report
-        </button>
-        <button
-          class="action-btn secondary"
-          onclick="alert('📤 Export as PDF started.\n\n(Demo mode)')"
-        >
-          📤 Export PDF
-        </button>
-      </div>
-
-      <!-- Vulnerabilities -->
-      <div class="vuln-section-title">
-        🦆 Vulnerabilities <span>Found</span>
-      </div>
-      <div class="vuln-list">
-        <div
-          class="vuln-card critical"
-          onclick="this.classList.toggle('expanded')"
-        >
-          <div class="vuln-top">
-            <div class="vuln-name">🚨 SQL Injection in User Authentication</div>
-            <span class="vuln-badge critical">Critical</span>
-          </div>
+      <div class="vuln-list" id="vulnList">
+        <div class="vuln-card info report-loading" id="reportLoading">
+          <div class="vuln-name">Loading analysis results...</div>
           <div class="vuln-desc">
-            User input is directly concatenated into SQL query without
-            parameterization, allowing attackers to bypass authentication or
-            extract database contents.
-          </div>
-          <div>
-            <span class="vuln-file">src/auth/login.js:47</span>
-            <span class="vuln-cve">CWE-89 · CVSS 9.8</span>
-          </div>
-          <div class="expand-hint">Click to see fix →</div>
-          <div class="vuln-fix">
-            <div class="vuln-fix-label">🦢 Suggested Fix</div>
-            <div class="vuln-fix-text">
-              Replace string concatenation with parameterized queries using
-              prepared statements.
-            </div>
-            <code class="vuln-fix-code"
-              >// Before (vulnerable) const query = `SELECT * FROM users WHERE
-              email = '${email}'`; // After (safe) const query = 'SELECT * FROM
-              users WHERE email = ?'; db.execute(query, [email]);</code
-            >
+            Fetching vulnerability regions from the JSON analysis file.
           </div>
         </div>
-
-        <div
-          class="vuln-card critical"
-          onclick="this.classList.toggle('expanded')"
-        >
-          <div class="vuln-top">
-            <div class="vuln-name">🚨 Hardcoded API Secret Key</div>
-            <span class="vuln-badge critical">Critical</span>
-          </div>
-          <div class="vuln-desc">
-            Production API secret key is hardcoded in source code. If the
-            repository is public or compromised, attackers gain full API access.
-          </div>
-          <div>
-            <span class="vuln-file">src/config/api.js:12</span>
-            <span class="vuln-cve">CWE-798 · CVSS 9.1</span>
-          </div>
-          <div class="expand-hint">Click to see fix →</div>
-          <div class="vuln-fix">
-            <div class="vuln-fix-label">🦢 Suggested Fix</div>
-            <div class="vuln-fix-text">
-              Move secrets to environment variables and add the config file to
-              .gitignore.
-            </div>
-            <code class="vuln-fix-code"
-              >// Before (vulnerable) const API_KEY = 'sk-live-a8f3...real-key';
-              // After (safe) const API_KEY = process.env.API_SECRET_KEY;</code
-            >
-          </div>
-        </div>
-
-        <div class="vuln-card high" onclick="this.classList.toggle('expanded')">
-          <div class="vuln-top">
-            <div class="vuln-name">
-              ⚠️ Cross-Site Scripting (XSS) in Comments
-            </div>
-            <span class="vuln-badge high">High</span>
-          </div>
-          <div class="vuln-desc">
-            User-submitted comment content is rendered as raw HTML without
-            sanitization, allowing stored XSS attacks that execute in other
-            users' browsers.
-          </div>
-          <div>
-            <span class="vuln-file">src/components/Comments.jsx:83</span>
-            <span class="vuln-cve">CWE-79 · CVSS 7.5</span>
-          </div>
-          <div class="expand-hint">Click to see fix →</div>
-          <div class="vuln-fix">
-            <div class="vuln-fix-label">🦢 Suggested Fix</div>
-            <div class="vuln-fix-text">
-              Use textContent or a sanitization library like DOMPurify instead
-              of innerHTML.
-            </div>
-            <code class="vuln-fix-code"
-              >// Before (vulnerable) el.innerHTML = comment.body; // After
-              (safe) import DOMPurify from 'dompurify'; el.innerHTML =
-              DOMPurify.sanitize(comment.body);</code
-            >
-          </div>
-        </div>
-
-        <div class="vuln-card high" onclick="this.classList.toggle('expanded')">
-          <div class="vuln-top">
-            <div class="vuln-name">⚠️ Insecure Deserialization</div>
-            <span class="vuln-badge high">High</span>
-          </div>
-          <div class="vuln-desc">
-            Untrusted data is passed directly to JSON.parse without validation,
-            and the resulting object is used to set application state without
-            schema checking.
-          </div>
-          <div>
-            <span class="vuln-file">src/api/webhooks.js:31</span>
-            <span class="vuln-cve">CWE-502 · CVSS 7.2</span>
-          </div>
-          <div class="expand-hint">Click to see fix →</div>
-          <div class="vuln-fix">
-            <div class="vuln-fix-label">🦢 Suggested Fix</div>
-            <div class="vuln-fix-text">
-              Validate deserialized data against a schema using a library like
-              Zod or Joi before consuming it.
-            </div>
-            <code class="vuln-fix-code"
-              >import { z } from 'zod'; const WebhookSchema = z.object({ event:
-              z.string(), data: z.record(z.unknown()) }); const parsed =
-              WebhookSchema.parse(JSON.parse(body));</code
-            >
-          </div>
-        </div>
-
-        <div
-          class="vuln-card medium"
-          onclick="this.classList.toggle('expanded')"
-        >
-          <div class="vuln-top">
-            <div class="vuln-name">
-              🟡 Missing Rate Limiting on Login Endpoint
-            </div>
-            <span class="vuln-badge medium">Medium</span>
-          </div>
-          <div class="vuln-desc">
-            The /api/login endpoint has no rate limiting, making it vulnerable
-            to brute-force credential attacks.
-          </div>
-          <div>
-            <span class="vuln-file">src/routes/auth.js:15</span>
-            <span class="vuln-cve">CWE-307 · CVSS 5.3</span>
-          </div>
-          <div class="expand-hint">Click to see fix →</div>
-          <div class="vuln-fix">
-            <div class="vuln-fix-label">🦢 Suggested Fix</div>
-            <div class="vuln-fix-text">
-              Add rate limiting middleware such as express-rate-limit to the
-              authentication routes.
-            </div>
-            <code class="vuln-fix-code"
-              >import rateLimit from 'express-rate-limit'; const loginLimiter =
-              rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: 'Too many
-              attempts' }); app.post('/api/login', loginLimiter, handler);</code
-            >
-          </div>
-        </div>
-
-        <div
-          class="vuln-card medium"
-          onclick="this.classList.toggle('expanded')"
-        >
-          <div class="vuln-top">
-            <div class="vuln-name">🟡 Outdated Dependency with Known CVE</div>
-            <span class="vuln-badge medium">Medium</span>
-          </div>
-          <div class="vuln-desc">
-            <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bcd0d3d8ddcfd4fc88928d8b928d89">[email&#160;protected]</a> has a known prototype pollution vulnerability
-            (CVE-2020-8203). Current version is 4.17.21.
-          </div>
-          <div>
-            <span class="vuln-file">package.json:24</span>
-            <span class="vuln-cve">CVE-2020-8203 · CVSS 5.6</span>
-          </div>
-          <div class="expand-hint">Click to see fix →</div>
-          <div class="vuln-fix">
-            <div class="vuln-fix-label">🦢 Suggested Fix</div>
-            <div class="vuln-fix-text">
-              Update lodash to the latest patched version.
-            </div>
-            <code class="vuln-fix-code">npm install <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="eb87848f8a9883abdfc5dadcc5d9da">[email&#160;protected]</a></code>
-          </div>
-        </div>
-
-        <div class="vuln-card low" onclick="this.classList.toggle('expanded')">
-          <div class="vuln-top">
-            <div class="vuln-name">
-              💡 Missing Content-Security-Policy Header
-            </div>
-            <span class="vuln-badge low">Low</span>
-          </div>
-          <div class="vuln-desc">
-            No Content-Security-Policy header is set, reducing defense-in-depth
-            against XSS and data injection attacks.
-          </div>
-          <div>
-            <span class="vuln-file">src/middleware/headers.js</span>
-            <span class="vuln-cve">CWE-1021 · Best Practice</span>
-          </div>
-          <div class="expand-hint">Click to see fix →</div>
-          <div class="vuln-fix">
-            <div class="vuln-fix-label">🦢 Suggested Fix</div>
-            <div class="vuln-fix-text">
-              Add a Content-Security-Policy header using the helmet middleware.
-            </div>
-            <code class="vuln-fix-code"
-              >import helmet from 'helmet';
-              app.use(helmet.contentSecurityPolicy({ directives: { defaultSrc:
-              ["'self'"] } }));</code
-            >
-          </div>
-        </div>
-
-        <div class="vuln-card low" onclick="this.classList.toggle('expanded')">
-          <div class="vuln-top">
-            <div class="vuln-name">💡 Console.log Statements in Production</div>
-            <span class="vuln-badge low">Low</span>
-          </div>
-          <div class="vuln-desc">
-            12 console.log statements found that may leak sensitive information
-            in production environments.
-          </div>
-          <div>
-            <span class="vuln-file">Multiple files (12 instances)</span>
-            <span class="vuln-cve">CWE-532 · Best Practice</span>
-          </div>
-          <div class="expand-hint">Click to see fix →</div>
-          <div class="vuln-fix">
-            <div class="vuln-fix-label">🦢 Suggested Fix</div>
-            <div class="vuln-fix-text">
-              Replace console.log with a proper logging library and strip debug
-              logs in production builds.
-            </div>
-            <code class="vuln-fix-code"
-              >// Use a structured logger import pino from 'pino'; const logger
-              = pino({ level: process.env.LOG_LEVEL || 'info' }); logger.info({
-              userId }, 'User logged in');</code
-            >
-          </div>
-        </div>
-      </div>
-
-      <!-- Dependencies -->
-      <div class="dep-section">
-        <div class="vuln-section-title">📦 Dependency <span>Health</span></div>
-        <table class="dep-table">
-          <thead>
-            <tr>
-              <th>Package</th>
-              <th>Current</th>
-              <th>Latest</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>express</td>
-              <td>4.18.2</td>
-              <td>4.21.0</td>
-              <td class="dep-outdated">⚠ Update Available</td>
-            </tr>
-            <tr>
-              <td>lodash</td>
-              <td>4.17.15</td>
-              <td>4.17.21</td>
-              <td class="dep-outdated">🚨 Vulnerable</td>
-            </tr>
-            <tr>
-              <td>react</td>
-              <td>18.2.0</td>
-              <td>18.3.1</td>
-              <td class="dep-outdated">⚠ Update Available</td>
-            </tr>
-            <tr>
-              <td>jsonwebtoken</td>
-              <td>9.0.2</td>
-              <td>9.0.2</td>
-              <td class="dep-ok">✅ Up to date</td>
-            </tr>
-            <tr>
-              <td>helmet</td>
-              <td>7.1.0</td>
-              <td>7.1.0</td>
-              <td class="dep-ok">✅ Up to date</td>
-            </tr>
-            <tr>
-              <td>zod</td>
-              <td>3.22.4</td>
-              <td>3.22.4</td>
-              <td class="dep-ok">✅ Up to date</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     </main>
 
-    <!-- Floating Goose Helper -->
-    <div class="report-goose" id="reportGoose">
-      <div class="goose-tip">
-        🦢 <strong>HONK!</strong> Click any vulnerability card to see the
-        suggested fix. I found 8 issues — 2 critical ones need attention ASAP!
-      </div>
-      <svg
-        width="80"
-        height="95"
-        viewBox="0 0 120 140"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <ellipse
-          cx="60"
-          cy="80"
-          rx="42"
-          ry="48"
-          fill="#FFF5E0"
-          stroke="#3A3226"
-          stroke-width="3.5"
-        />
-        <ellipse
-          cx="60"
-          cy="55"
-          rx="12"
-          ry="5.5"
-          fill="#F0A030"
-          stroke="#3A3226"
-          stroke-width="2.5"
-        />
-        <circle cx="47" cy="44" r="3.5" fill="#3A3226" />
-        <circle cx="73" cy="44" r="3.5" fill="#3A3226" />
-        <ellipse
-          cx="38"
-          cy="55"
-          rx="8"
-          ry="4.5"
-          fill="#FFB4B4"
-          opacity="0.35"
-        />
-        <ellipse
-          cx="82"
-          cy="55"
-          rx="8"
-          ry="4.5"
-          fill="#FFB4B4"
-          opacity="0.35"
-        />
-        <g
-          style="
-            animation: sprout-wiggle 3s ease-in-out infinite;
-            transform-origin: 60px 32px;
-          "
-        >
-          <line
-            x1="60"
-            y1="32"
-            x2="60"
-            y2="12"
-            stroke="#5CB85C"
-            stroke-width="3.5"
-            stroke-linecap="round"
-          />
-          <ellipse
-            cx="51"
-            cy="10"
-            rx="8"
-            ry="5.5"
-            fill="#5CB85C"
-            transform="rotate(-25, 51, 10)"
-          />
-          <ellipse
-            cx="69"
-            cy="10"
-            rx="8"
-            ry="5.5"
-            fill="#5CB85C"
-            transform="rotate(25, 69, 10)"
-          />
-        </g>
-        <ellipse
-          cx="44"
-          cy="128"
-          rx="14"
-          ry="5.5"
-          fill="#F0A030"
-          stroke="#3A3226"
-          stroke-width="2.5"
-        />
-        <ellipse
-          cx="76"
-          cy="128"
-          rx="14"
-          ry="5.5"
-          fill="#F0A030"
-          stroke="#3A3226"
-          stroke-width="2.5"
-        />
-        <path
-          d="M18 72 Q8 80 18 92"
-          stroke="#3A3226"
-          stroke-width="2.5"
-          fill="none"
-          stroke-linecap="round"
-        />
-        <path
-          d="M102 72 Q112 80 102 92"
-          stroke="#3A3226"
-          stroke-width="2.5"
-          fill="none"
-          stroke-linecap="round"
-        />
-        <g transform="translate(44, 70) scale(0.55)">
-          <path
-            d="M12 0 L24 6 L24 18 Q12 26 0 18 L0 6 Z"
-            fill="#3AAFFF"
-            stroke="#FFD93D"
-            stroke-width="2.5"
-          />
-          <text
-            x="12"
-            y="16"
-            text-anchor="middle"
-            fill="white"
-            font-size="12"
-            font-weight="bold"
-          >
-            ✓
-          </text>
-        </g>
-      </svg>
-    </div>
-
-    <!-- Footer -->
-    <footer class="footer">
-      <span>Harnold's Eye</span> © 2026 — Built with 🪶 — No bug escapes the
-      flock.
-    </footer>
-
     <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-      // Get repo URL from query param
+      // Get data file path from query param
       const params = new URLSearchParams(window.location.search);
-      const repoUrl = params.get("repo") || "https://github.com/example/my-app";
-      document.getElementById("repoName").textContent = repoUrl.replace(
-        "https://",
-        "",
-      );
+      const dataFile = params.get("data") || "test.json";
 
       // Generate scan feathers
       const sf = document.getElementById("scanFeathers");
@@ -1645,38 +1153,27 @@
       const scanSteps = [
         {
           text: "Releasing the Geese...",
-          status: "Connecting to repository...",
-          pct: 10,
-        },
-        {
-          text: "Releasing the Geese...",
-          status: "Cloning repo contents...",
-          pct: 25,
+          status: "Connecting to analysis file...",
+          pct: 15,
         },
         {
           text: "The Flock is Scanning...",
-          status: "Analyzing src/auth/login.js...",
+          status: "Fetching JSON vulnerabilities...",
           pct: 40,
         },
         {
           text: "The Flock is Scanning...",
-          status: "Checking dependencies for CVEs...",
-          pct: 55,
-        },
-        {
-          text: "The Flock is Scanning...",
-          status: "Scanning src/components/Comments.jsx...",
+          status: "Building report view...",
           pct: 70,
         },
         {
-          text: "Cross-Validating Findings...",
-          status: "Running flock consensus...",
-          pct: 85,
+          text: "Almost Done!",
+          status: "Rendering findings...",
+          pct: 95,
         },
-        { text: "Almost Done!", status: "Generating report...", pct: 95 },
         {
           text: "HONK! Scan Complete!",
-          status: "8 vulnerabilities found",
+          status: "Report ready",
           pct: 100,
         },
       ];
@@ -1688,7 +1185,7 @@
           setTimeout(() => {
             document.getElementById("scanOverlay").classList.add("hidden");
             document.getElementById("reportPage").classList.add("visible");
-            animateResults();
+            loadReportJson();
           }, 600);
           return;
         }
@@ -1699,50 +1196,87 @@
         stepIndex++;
       }, 700);
 
-      // Animate results appearing
-      function animateResults() {
-        // Score ring
-        const score = 62;
-        const circumference = 2 * Math.PI * 42; // 263.9
-        const offset = circumference - (score / 100) * circumference;
-        setTimeout(() => {
-          document.getElementById("scoreRing").style.strokeDashoffset = offset;
-        }, 300);
+      // Load the JSON analysis file and render findings
+      function loadReportJson() {
+        const listEl = document.getElementById("vulnList");
+        const titleEl = document.getElementById("reportStatus");
 
-        // Score number
-        let current = 0;
-        const scoreInterval = setInterval(() => {
-          current += 1;
-          if (current >= score) {
-            current = score;
-            clearInterval(scoreInterval);
-          }
-          document.getElementById("scoreVal").textContent = current;
-        }, 25);
-
-        setTimeout(() => {
-          document.getElementById("scoreGrade").textContent = "Grade: C+";
-        }, 1600);
-
-        // Severity counts
-        animateCount("critCount", 2, 800);
-        animateCount("highCount", 2, 1000);
-        animateCount("medCount", 2, 1200);
-        animateCount("lowCount", 2, 1400);
-      }
-
-      function animateCount(id, target, delay) {
-        setTimeout(() => {
-          let current = 0;
-          const interval = setInterval(() => {
-            current += 1;
-            if (current >= target) {
-              current = target;
-              clearInterval(interval);
+        fetch(dataFile)
+          .then((resp) => {
+            if (!resp.ok) {
+              throw new Error(`Unable to fetch ${dataFile}: ${resp.status}`);
             }
-            document.getElementById(id).textContent = current;
-          }, 30);
-        }, delay);
+            return resp.json();
+          })
+          .then((data) => {
+            const entries = Object.entries(data || {});
+            const totalFindings = entries.reduce(
+              (count, [, ranges]) =>
+                count + (Array.isArray(ranges) ? ranges.length : 0),
+              0,
+            );
+
+            if (totalFindings === 0) {
+              titleEl.textContent = "No Vulnerabilities Detected";
+              listEl.innerHTML = `
+                <div class="vuln-card info">
+                  <div class="vuln-name">No Vulnerabilities Detected</div>
+                </div>
+              `;
+              document.getElementById("scanStatus").textContent =
+                "No vulnerabilities found";
+              document.getElementById("scanText").textContent =
+                "Report complete";
+              return;
+            }
+
+            titleEl.textContent = "Vulnerabilities found";
+            listEl.innerHTML = "";
+
+            entries.forEach(([file, ranges]) => {
+              if (!Array.isArray(ranges) || ranges.length === 0) {
+                return;
+              }
+
+              const rangeHtml = ranges
+                .map(([start, end]) => {
+                  if (start === end) {
+                    return `<div class="vuln-file">${file}: line ${start}</div>`;
+                  }
+                  return `<div class="vuln-file">${file}: lines ${start}-${end}</div>`;
+                })
+                .join("");
+
+              listEl.insertAdjacentHTML(
+                "beforeend",
+                `
+                <div class="vuln-card info">
+                  <div class="vuln-name">${file}</div>
+                  ${rangeHtml}
+                </div>
+              `,
+              );
+            });
+
+            document.getElementById("scanStatus").textContent =
+              `${totalFindings} vulnerabilities found`;
+            document.getElementById("scanText").textContent =
+              "Report complete";
+          })
+          .catch((err) => {
+            titleEl.textContent = "Unable to render report";
+            listEl.innerHTML = `
+              <div class="vuln-card info">
+                <div class="vuln-name">Unable to load analysis file.</div>
+                <div class="vuln-desc">${err.message}</div>
+              </div>
+            `;
+            document.getElementById("scanStatus").textContent =
+              "Error loading report";
+            document.getElementById("scanText").textContent =
+              "Failed to load results";
+            console.error(err);
+          });
       }
     </script>
   </body>
