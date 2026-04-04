@@ -1,0 +1,39 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Target: https://github.com/redis/hiredis
+vulnerability_ranges.json: /opt/HarnoldsEye/backend/api/data/vulnerability_ranges.json
+============================================================
+C/C++ VULNERABILITY SCANNER
+============================================================
+Cloning https://github.com/redis/hiredis...
+✓ Repository cloned to /tmp/c_scan_altrmdnw
+
+Extracting C/C++ files...
+✓ Found 52 C/C++ files
+
+Initializing ML scanner...
+Loading trained classifier from /opt/HarnoldsEye/backend/model/model.pkl...
+✓ Classifier ready (num_labels=2)
+  Tip: softmax scores often peak below 0.86; set ML_MIN_ABSOLUTE_SIMILARITY or ML_MIN_ABSOLUTE_SIMILARITY_CLASSIFIER (e.g. 0.35–0.55) if nothing passes filters.
+
+Scanning files...
+✓ Scanned 2746 snippets (repo percentile cutoff=0.989)
+✓ Found 330 suspicious snippets after filtering
+
+Consolidating findings...
+
+✓ Report saved to /opt/HarnoldsEye/backend/api/data/last_full_report.json
+
+============================================================
+SCAN COMPLETE
+============================================================
+Files scanned: 52
+Files with vulnerabilities: 38
+Total vulnerabilities found: 330
+
+Breakdown by category:
+  - LABEL_1: 330
+
+Cleaning up temporary files...
+POST /api/scan 200 {'status': 'queued', 'github_url': 'https://github.com/redis/hiredis', 'message': 'Scan started. Poll GET /api/scan/status then fetch GET /api/vulnerabilities.json'}
+TIMEOUT None
+EXIT:2

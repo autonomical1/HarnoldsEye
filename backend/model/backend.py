@@ -343,7 +343,7 @@ class VulnerabilityScanner:
         import torch
 
         if batch_size is None:
-            batch_size = max(1, int(os.environ.get("CLASSIFIER_BATCH_SIZE", "256")))
+            batch_size = max(1, int(os.environ.get("CLASSIFIER_BATCH_SIZE", "48")))
         model = self._torch_model
         tokenizer = self.tokenizer
         assert model is not None and tokenizer is not None
@@ -1149,27 +1149,28 @@ Respond with **only** one JSON object — no markdown, no prose, no code fences.
 Required shape:
 - "vulnerable": boolean
 - "line_numbers": array of [start_line, end_line] pairs (inclusive), using **1-based line numbers in the real source file** exactly as the user message states for the excerpt (not line numbers inside the fenced code block).
-- "vulnerability_type": short string when vulnerable is true — a concise label such as "stack_buffer_overflow", "use_after_free", "integer_overflow", "format_string", "command_injection", or another accurate snake_case or plain-English category. Use "" when vulnerable is false.
+- "vulnerability_type": short string when vulnerable is true — use the **most specific accurate** label (snake_case or plain English). Examples: "heap_buffer_overflow", "stack_buffer_overflow", "integer_overflow", "integer_underflow", "use_after_free", "double_free", "unchecked_malloc", "divide_by_zero", "out_of_bounds_read", "out_of_bounds_write", "format_string", "memory_leak", "command_injection", "null_pointer_dereference". Do **not** label everything "stack_buffer_overflow" when the flaw is heap, arithmetic, lifetime, or logic. Use "" when vulnerable is false.
 
 If there is no genuine security issue: {"vulnerable": false, "line_numbers": [], "vulnerability_type": ""}.
 If there is: {"vulnerable": true, "line_numbers": [[a,b], ...], "vulnerability_type": "..."} with the **smallest** spans that pinpoint the flaw."""
 
 _GEMINI_SYSTEM_INSTRUCTION_EDUCATIONAL = """
 
-**Educational / deliberately vulnerable repositories:** If the excerpt contains **classic insecure C/C++** (e.g. gets(), unchecked strcpy/strcat/sprintf into fixed stack buffers, memcpy without bounds checks, user-controlled format strings, command execution with untrusted input), answer **vulnerable: true** and mark those lines. Do **not** answer false *only* because the project is a lab, CTF, fuzz harness, or training exercise — judge the code on its merits. Use false when the shown code is actually safe (proper bounds, modern APIs) or non-executable commentary only."""
+**Educational / deliberately vulnerable repositories:** If the excerpt contains **classic insecure C/C++** — including unchecked stack/heap copies, **integer overflow/underflow** affecting allocation or indexing, **malloc without NULL checks**, **double free / use-after-free**, **divide by zero**, **OOB reads/writes**, **non-NUL-terminated data with %s**, **resource leaks**, **command/format injection** — answer **vulnerable: true** and mark those lines. Do **not** answer false *only* because the project is a lab, CTF, fuzz harness, or training exercise — judge the code on its merits. Use false when the shown code is actually safe (proper bounds, modern APIs) or non-executable commentary only."""
 
 
 def _gemini_system_instruction_text() -> str:
-    """Full system instruction; strict mode omits educational bias (see GEMINI_STRICT_SOURCE_CONTEXT)."""
+    """
+    System instruction for Gemini. Default is **strict** (core only): best default for
+    large OSS and mixed codebases. Optional **educational** appendix (see
+    GEMINI_STRICT_SOURCE_CONTEXT) helps when scanning known CTF/lab trees where the model
+    tended to answer vulnerable:false just because the repo looked like homework.
+    """
     core = _GEMINI_SYSTEM_INSTRUCTION_CORE
-    if os.environ.get("GEMINI_STRICT_SOURCE_CONTEXT", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    ):
-        return core
-    return core + _GEMINI_SYSTEM_INSTRUCTION_EDUCATIONAL
+    v = os.environ.get("GEMINI_STRICT_SOURCE_CONTEXT", "1").strip().lower()
+    if v in ("0", "false", "no", "off"):
+        return core + _GEMINI_SYSTEM_INSTRUCTION_EDUCATIONAL
+    return core
 
 
 def _gemini_verify_enabled() -> bool:
@@ -1211,7 +1212,7 @@ def _gemini_user_prompt(
 ) -> str:
     ex_vuln = (
         '{"vulnerable": true, "line_numbers": [[12, 14]], '
-        '"vulnerability_type": "stack_buffer_overflow"}'
+        '"vulnerability_type": "integer_overflow"}'
     )
     ex_safe = '{"vulnerable": false, "line_numbers": [], "vulnerability_type": ""}'
     return f"""A static/ML scanner flagged the following code region as suspicious.
@@ -1234,7 +1235,7 @@ Code:
 1. Respond with **only** one JSON object.
 2. Shape: {ex_vuln} when there is a real vulnerability, or {ex_safe} when there is not.
 3. "line_numbers" must list minimal inclusive spans (file line numbers) covering only the vulnerable code; use [] when vulnerable is false.
-4. "vulnerability_type" must name the primary flaw (see system instructions); use "" when vulnerable is false."""
+4. "vulnerability_type" must name the **primary** flaw with a **specific** category matching the actual bug (heap vs stack, lifetime, arithmetic, etc.); never default to "stack_buffer_overflow" unless the defect is truly an unchecked write on the stack. Use "" when vulnerable is false."""
 
 
 def _parse_gemini_vulnerability_type(raw: Any) -> str:
@@ -1529,7 +1530,7 @@ def _filter_findings_with_gemini(
         return []
 
     delay_ms = max(0, int(os.environ.get("GEMINI_DELAY_MS", "200")))
-    workers = max(1, int(os.environ.get("GEMINI_MAX_CONCURRENT", "6")))
+    workers = max(1, int(os.environ.get("GEMINI_MAX_CONCURRENT", "16")))
     workers = min(workers, n)
 
     if workers <= 1:
@@ -1639,7 +1640,7 @@ def find_vulnerable_snippets(
     score_results: List[Dict[str, Any]] = []
     if getattr(scanner, "uses_classifier", False) and scanner._torch_model is not None:
         texts = [s["code"] for _, s in flat]
-        batch_size = max(1, int(os.environ.get("CLASSIFIER_BATCH_SIZE", "256")))
+        batch_size = max(1, int(os.environ.get("CLASSIFIER_BATCH_SIZE", "48")))
         for start in range(0, len(texts), batch_size):
             chunk = texts[start : start + batch_size]
             score_results.extend(
@@ -1653,7 +1654,7 @@ def find_vulnerable_snippets(
             )
     elif scanner.model is not None and scanner.pattern_embeddings is not None:
         texts = [s["code"] for _, s in flat]
-        st_batch = max(1, int(os.environ.get("ST_ENCODE_BATCH_SIZE", "128")))
+        st_batch = max(1, int(os.environ.get("ST_ENCODE_BATCH_SIZE", "32")))
         embs = scanner.model.encode(
             texts,
             batch_size=st_batch,
@@ -1886,6 +1887,130 @@ def consolidate_findings(vulnerable_snippets: List[Dict]) -> Dict:
     }
 
 
+def _context_line_blank(text: str) -> bool:
+    return not (text or "").strip()
+
+
+def _build_finding_code_context(
+    lines: List[str],
+    line_start: int,
+    line_end: int,
+    context_before: Optional[int] = None,
+    context_after: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Build ~5+5 line window (1-based) for frontend blame-style view.
+    Collapses runs of 3+ blank lines into a single ellipsis row.
+    """
+    if context_before is None:
+        context_before = max(0, int(os.environ.get("REPORT_CONTEXT_LINES_BEFORE", "5")))
+    if context_after is None:
+        context_after = max(0, int(os.environ.get("REPORT_CONTEXT_LINES_AFTER", "5")))
+    max_rows = max(11, int(os.environ.get("REPORT_CONTEXT_MAX_ROWS", "40")))
+
+    n = len(lines)
+    if n == 0:
+        return []
+
+    try:
+        a, b = int(line_start), int(line_end)
+    except (TypeError, ValueError):
+        return []
+    if a > b:
+        a, b = b, a
+    anchor = a
+    if anchor < 1 or anchor > n:
+        return []
+
+    lo = max(1, anchor - context_before)
+    hi = min(n, anchor + context_after)
+    if b > anchor + context_after:
+        hi = min(n, b + context_after)
+
+    span = hi - lo + 1
+    if span > max_rows:
+        half = max_rows // 2
+        lo = max(1, anchor - half)
+        hi = min(n, lo + max_rows - 1)
+        lo = max(1, hi - max_rows + 1)
+
+    raw_rows: List[Tuple[int, str]] = []
+    for i in range(lo, hi + 1):
+        text = lines[i - 1].rstrip("\n\r")
+        raw_rows.append((i, text))
+
+    out: List[Dict[str, Any]] = []
+    idx = 0
+    while idx < len(raw_rows):
+        num, text = raw_rows[idx]
+        if _context_line_blank(text):
+            j = idx + 1
+            while j < len(raw_rows) and _context_line_blank(raw_rows[j][1]):
+                j += 1
+            run_len = j - idx
+            if run_len >= 3:
+                out.append(
+                    {
+                        "num": None,
+                        "text": "",
+                        "ellipsis": True,
+                        "label": f"… {run_len} blank lines omitted …",
+                    }
+                )
+                idx = j
+                continue
+            for k in range(idx, j):
+                ln, tx = raw_rows[k]
+                row: Dict[str, Any] = {
+                    "num": ln,
+                    "text": tx,
+                    "ellipsis": False,
+                }
+                if a <= ln <= b:
+                    row["in_vuln_range"] = True
+                if ln == anchor:
+                    row["anchor"] = True
+                out.append(row)
+            idx = j
+            continue
+
+        row = {
+            "num": num,
+            "text": text,
+            "ellipsis": False,
+        }
+        if a <= num <= b:
+            row["in_vuln_range"] = True
+        if num == anchor:
+            row["anchor"] = True
+        out.append(row)
+        idx += 1
+
+    return out
+
+
+def enrich_report_with_code_context(report: Dict[str, Any], files: List[Dict]) -> None:
+    """Mutate report: add code_context[] to each vulnerability when source lines exist."""
+    by_path: Dict[str, List[str]] = {
+        f["file_path"]: f["lines"]
+        for f in files
+        if f.get("file_path") and f.get("lines") is not None
+    }
+    for fe in report.get("files") or []:
+        path = (fe.get("file_path") or "").strip()
+        lns = by_path.get(path)
+        if not lns:
+            continue
+        for v in fe.get("vulnerabilities") or []:
+            if not isinstance(v, dict):
+                continue
+            try:
+                ls, le = int(v["line_start"]), int(v["line_end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            v["code_context"] = _build_finding_code_context(lns, ls, le)
+
+
 # ============================================================================
 # MAIN PIPELINE
 # ============================================================================
@@ -1980,11 +2105,12 @@ def scan_repository(
             detail="Merging findings",
         )
         report = consolidate_findings(vulnerable_snippets)
-        
+        enrich_report_with_code_context(report, files)
+
         # Add metadata
         report["github_url"] = github_url
         report["total_files_scanned"] = len(files)
-        
+
         # Step 6: Save to JSON
         with open(output_file, 'w') as f:
             json.dump(report, f, indent=2)

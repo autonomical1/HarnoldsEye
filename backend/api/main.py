@@ -4,8 +4,10 @@ one canonical JSON file + in-memory payload for the frontend.
 
 Served / on-disk format: JSON array (files with no hits are omitted):
   [ { "file_name": "relative/path.c",
-      "findings": [ { "line_numbers": [1, 10], "vulnerability_type": "..." }, ... ] }, ... ]
-Same file is overwritten each successful scan.
+      "findings": [ { "line_numbers": [1, 10], "vulnerability_type": "...",
+                      "code_context": [ { "num", "text", "in_vuln_range?", "anchor?", "ellipsis?" } ] },
+                    ... ] }, ... ]
+Same file is overwritten each successful scan. Optional per-finding "code_context" (legacy JSON omits it).
 """
 from __future__ import annotations
 
@@ -113,8 +115,8 @@ def _gemini_verify_active() -> bool:
 
 def report_to_frontend_payload(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Build [{ "file_name", "findings": [{ "line_numbers": [s,e], "vulnerability_type": str }] }, ...]
-    from backend consolidate_findings report. Omits files with no ranges.
+    Build [{ "file_name", "findings": [{ "line_numbers", "vulnerability_type", optional "code_context" }] }, ...]
+    from backend consolidated report (after enrich_report_with_code_context). Omits files with no ranges.
     """
     out: List[Dict[str, Any]] = []
     for file_entry in report.get("files") or []:
@@ -155,6 +157,9 @@ def report_to_frontend_payload(report: Dict[str, Any]) -> List[Dict[str, Any]]:
                     if sa > sb:
                         sa, sb = sb, sa
                     fd["sink_line_numbers"] = [sa, sb]
+            ctx = v.get("code_context")
+            if isinstance(ctx, list) and ctx:
+                fd["code_context"] = ctx
             findings.append(fd)
         if findings:
             out.append({"file_name": path, "findings": findings})
@@ -222,6 +227,9 @@ def load_vulnerability_json_from_disk() -> None:
                                 int(sln[0]),
                                 int(sln[1]),
                             ]
+                        ctx = f.get("code_context")
+                        if isinstance(ctx, list) and ctx:
+                            entry["code_context"] = ctx
                         clean.append(entry)
                 if clean:
                     out.append({"file_name": fn, "findings": clean})
@@ -493,8 +501,7 @@ def _serve_vulnerability_payload() -> List[Dict[str, Any]]:
 async def get_vulnerabilities_json():
     """
     Frontend: same JSON written to disk after each successful scan.
-    [ { "file_name": "path/to/file.c",
-        "findings": [ { "line_numbers": [1, 10], "vulnerability_type": "buffer_overflow" }, ... ] }, ... ]
+    Each finding may include "code_context" (blame-style line window from the last scan).
     """
     return _serve_vulnerability_payload()
 

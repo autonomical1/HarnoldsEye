@@ -590,6 +590,111 @@
       .vuln-row:last-child {
         margin-bottom: 0;
       }
+
+      .vuln-finding {
+        margin-bottom: 1rem;
+      }
+      .vuln-finding:last-child {
+        margin-bottom: 0;
+      }
+      .vuln-finding-head {
+        margin-bottom: 0.35rem;
+      }
+      .vuln-finding-head .vuln-type {
+        margin-top: 0.25rem;
+      }
+      .vuln-finding-meta .vuln-call-hint {
+        margin-top: 0.2rem;
+        margin-bottom: 0;
+      }
+
+      .vuln-blame {
+        display: flex;
+        flex-direction: column;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 0.72rem;
+        background: rgba(0, 0, 0, 0.28);
+      }
+      .vuln-blame-line {
+        display: grid;
+        grid-template-columns: 3.1rem minmax(0, 1fr) minmax(5.5rem, auto);
+        gap: 0.45rem;
+        align-items: start;
+        padding: 0.18rem 0.45rem;
+        transition: background 0.18s ease;
+      }
+      .vuln-blame-line:hover {
+        background: rgba(255, 255, 255, 0.045);
+      }
+      .vuln-blame-line--hit {
+        background: rgba(255, 95, 70, 0.07);
+      }
+      .vuln-blame-line--hit:hover {
+        background: rgba(255, 95, 70, 0.14);
+      }
+      .vuln-blame-line--anchor {
+        box-shadow: inset 3px 0 0 rgba(255, 130, 90, 0.85);
+      }
+      .vuln-blame-gutter {
+        text-align: right;
+        color: rgba(255, 255, 255, 0.38);
+        user-select: none;
+        background: rgba(255, 255, 255, 0.04);
+        margin: -0.18rem 0 -0.18rem -0.45rem;
+        padding: 0.18rem 0.3rem;
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        font-variant-numeric: tabular-nums;
+      }
+      .vuln-blame-line--hit .vuln-blame-gutter {
+        color: rgba(255, 200, 140, 0.98);
+        font-weight: 700;
+        background: rgba(255, 100, 70, 0.16);
+      }
+      .vuln-blame-code {
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: rgba(230, 238, 248, 0.92);
+        line-height: 1.48;
+        padding-top: 0.05rem;
+      }
+      .vuln-blame-meta {
+        text-align: right;
+        align-self: center;
+        padding-right: 0.15rem;
+      }
+      .vuln-blame-type {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: rgba(255, 186, 120, 0.96);
+        background: rgba(255, 100, 70, 0.12);
+        border: 1px solid rgba(255, 150, 110, 0.35);
+        border-radius: 5px;
+        padding: 2px 7px;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .vuln-blame-line--ellipsis {
+        display: block;
+        padding: 0.35rem 0.75rem;
+        border-top: 1px dashed rgba(255, 255, 255, 0.08);
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+      }
+      .vuln-blame-line--ellipsis:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .vuln-blame-ellipsis-label {
+        color: rgba(255, 255, 255, 0.42);
+        font-style: italic;
+        letter-spacing: 0.03em;
+      }
+
       .vuln-type {
         font-size: 0.8rem;
         font-weight: 600;
@@ -1234,6 +1339,43 @@
           .join(" ");
       }
 
+      function renderCodeContextBlock(f, typDisplay) {
+        const ctx = f.code_context;
+        if (!Array.isArray(ctx) || !ctx.length) return "";
+        const typEscaped = typDisplay ? escapeHtml(typDisplay) : "";
+        const typePillHtml = typEscaped
+          ? `<span class="vuln-blame-type">${typEscaped}</span>`
+          : "";
+        const rows = ctx
+          .map((row) => {
+            if (row.ellipsis) {
+              const lab = escapeHtml(
+                row.label || "… blank lines omitted …",
+              );
+              return `<div class="vuln-blame-line vuln-blame-line--ellipsis"><span class="vuln-blame-ellipsis-label">${lab}</span></div>`;
+            }
+            const num = row.num;
+            const gutter = num != null ? String(num) : "·";
+            const parts = ["vuln-blame-line"];
+            if (row.in_vuln_range) parts.push("vuln-blame-line--hit");
+            if (row.anchor) parts.push("vuln-blame-line--anchor");
+            const meta =
+              row.in_vuln_range && typePillHtml
+                ? `<span class="vuln-blame-meta">${typePillHtml}</span>`
+                : `<span class="vuln-blame-meta"></span>`;
+            const code = row.text != null ? String(row.text) : "";
+            return `<div class="${parts.join(
+              " ",
+            )}"><span class="vuln-blame-gutter">${escapeHtml(
+              gutter,
+            )}</span><span class="vuln-blame-code">${escapeHtml(
+              code,
+            )}</span>${meta}</div>`;
+          })
+          .join("");
+        return `<div class="vuln-blame" aria-label="Source context">${rows}</div>`;
+      }
+
       function renderError(title, message) {
         document.getElementById("reportStatus").textContent = title;
         document.getElementById("vulnList").innerHTML = `
@@ -1303,6 +1445,10 @@
                     ? escapeHtml(String(f.sink_function))
                     : "sink";
                   callHint = `<div class="vuln-desc vuln-call-hint">Call site → ${fn} (${sinkPart})</div>`;
+                }
+                const blame = renderCodeContextBlock(f, typ);
+                if (blame) {
+                  return `<div class="vuln-finding"><div class="vuln-finding-head"><div class="vuln-file">${fileEsc}: ${linePart}</div>${callHint ? `<div class="vuln-finding-meta">${callHint}</div>` : ""}</div>${blame}</div>`;
                 }
                 return `<div class="vuln-row"><div class="vuln-file">${fileEsc}: ${linePart}</div>${typeBlock}${callHint}</div>`;
               })

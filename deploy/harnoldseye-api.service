@@ -1,0 +1,22 @@
+[Unit]
+Description=HarnoldsEye FastAPI (scanner + static frontend)
+After=network.target
+
+[Service]
+Type=simple
+User=harnolds
+Group=harnolds
+WorkingDirectory=/opt/HarnoldsEye/backend/api
+EnvironmentFile=-/etc/harnoldseye.env
+ExecStart=/opt/HarnoldsEye/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+# Uvicorn waits for background scan tasks on SIGTERM; cap stop time so restarts don't hang.
+TimeoutStopSec=90
+NoNewPrivileges=yes
+PrivateTmp=yes
+# Uncomment and tune for your Vultr plan (ML workloads are memory-heavy).
+# MemoryMax=12G
+
+[Install]
+WantedBy=multi-user.target
