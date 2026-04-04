@@ -1,0 +1,1932 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Harnold's Eye — AI Code Vulnerability Tracker</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --sky: #3aafff;
+        --sky-deep: #1b7fd4;
+        --grass: #4ade60;
+        --grass-dark: #2d9e3f;
+        --barn-orange: #ff8a2b;
+        --barn-red: #e54d2e;
+        --golden: #ffd93d;
+        --golden-dark: #e6b800;
+        --cream: #fff8e7;
+        --white: #ffffff;
+        --dark: #1a2332;
+        --feather-white: #f5f0e8;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Nunito", sans-serif;
+        background: var(--dark);
+        overflow-x: hidden;
+        color: var(--cream);
+      }
+
+      /* ========== HERO SECTION ========== */
+      .hero {
+        position: relative;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: linear-gradient(
+          180deg,
+          #1a3a5c 0%,
+          #2a5a8c 30%,
+          var(--sky) 60%,
+          var(--grass) 85%,
+          #3aad4a 100%
+        );
+      }
+
+      /* Animated clouds */
+      .cloud {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 100px;
+        filter: blur(1px);
+        animation: drift linear infinite;
+      }
+      .cloud::before,
+      .cloud::after {
+        content: "";
+        position: absolute;
+        background: inherit;
+        border-radius: 50%;
+      }
+      .cloud::before {
+        width: 60%;
+        height: 150%;
+        top: -60%;
+        left: 15%;
+      }
+      .cloud::after {
+        width: 45%;
+        height: 120%;
+        top: -40%;
+        right: 15%;
+      }
+
+      .cloud-1 {
+        width: 200px;
+        height: 50px;
+        top: 8%;
+        left: -200px;
+        animation-duration: 35s;
+        opacity: 0.9;
+      }
+      .cloud-2 {
+        width: 150px;
+        height: 40px;
+        top: 15%;
+        left: -150px;
+        animation-duration: 45s;
+        animation-delay: -15s;
+        opacity: 0.7;
+      }
+      .cloud-3 {
+        width: 250px;
+        height: 55px;
+        top: 22%;
+        left: -250px;
+        animation-duration: 55s;
+        animation-delay: -25s;
+        opacity: 0.6;
+      }
+      .cloud-4 {
+        width: 120px;
+        height: 35px;
+        top: 5%;
+        left: -120px;
+        animation-duration: 40s;
+        animation-delay: -8s;
+        opacity: 0.8;
+      }
+
+      @keyframes drift {
+        from {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(calc(100vw + 300px));
+        }
+      }
+
+      /* Stars twinkling at top */
+      .stars {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 35%;
+        pointer-events: none;
+      }
+      .star {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        background: #fff;
+        border-radius: 50%;
+        animation: twinkle 2s ease-in-out infinite alternate;
+      }
+
+      @keyframes twinkle {
+        0% {
+          opacity: 0.2;
+          transform: scale(0.8);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1.3);
+        }
+      }
+
+      /* Floating feathers */
+      .feather {
+        position: absolute;
+        width: 20px;
+        height: 40px;
+        pointer-events: none;
+        z-index: 5;
+        animation: featherFall linear infinite;
+      }
+      .feather svg {
+        width: 100%;
+        height: 100%;
+      }
+
+      @keyframes featherFall {
+        0% {
+          transform: translateY(-100px) rotate(0deg) translateX(0);
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(100vh) rotate(720deg) translateX(80px);
+          opacity: 0;
+        }
+      }
+
+      /* Sun */
+      .sun {
+        position: absolute;
+        top: 5%;
+        right: 10%;
+        width: 100px;
+        height: 100px;
+        background: var(--golden);
+        border-radius: 50%;
+        box-shadow:
+          0 0 60px rgba(255, 217, 61, 0.6),
+          0 0 120px rgba(255, 217, 61, 0.3);
+        animation: pulse-sun 4s ease-in-out infinite;
+        z-index: 1;
+      }
+      .sun::after {
+        content: "";
+        position: absolute;
+        inset: -15px;
+        border-radius: 50%;
+        background: rgba(255, 217, 61, 0.2);
+        animation: pulse-sun 4s ease-in-out infinite reverse;
+      }
+
+      @keyframes pulse-sun {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.08);
+        }
+      }
+
+      /* Ground/grass area */
+      .ground {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        height: 20%;
+        z-index: 2;
+      }
+      .grass-blade {
+        position: absolute;
+        bottom: 0;
+        width: 8px;
+        background: linear-gradient(to top, var(--grass-dark), var(--grass));
+        border-radius: 50% 50% 0 0;
+        transform-origin: bottom center;
+        animation: sway 3s ease-in-out infinite;
+      }
+
+      @keyframes sway {
+        0%,
+        100% {
+          transform: rotate(-5deg);
+        }
+        50% {
+          transform: rotate(5deg);
+        }
+      }
+
+      /* Fence */
+      .fence {
+        position: absolute;
+        bottom: 14%;
+        width: 100%;
+        height: 60px;
+        z-index: 3;
+        display: flex;
+        align-items: flex-end;
+        gap: 30px;
+        padding: 0 20px;
+        overflow: hidden;
+      }
+      .fence-post {
+        width: 12px;
+        height: 55px;
+        background: linear-gradient(135deg, #c4956a, #8b6942);
+        border-radius: 3px 3px 0 0;
+        flex-shrink: 0;
+        position: relative;
+      }
+      .fence-rail {
+        position: absolute;
+        left: 0;
+        width: 100%;
+        height: 8px;
+        background: linear-gradient(90deg, #c4956a, #a07850, #c4956a);
+        border-radius: 2px;
+        z-index: 3;
+      }
+      .fence-rail-top {
+        bottom: 75%;
+      }
+      .fence-rail-bottom {
+        bottom: 35%;
+      }
+
+      /* ========== MAIN CONTENT ========== */
+      .content {
+        position: relative;
+        z-index: 10;
+        text-align: center;
+        padding: 0 20px;
+        max-width: 900px;
+      }
+
+      /* Badge */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        padding: 8px 20px;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--golden);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 24px;
+        animation: fadeSlideDown 0.8s ease-out 0.3s both;
+      }
+      .badge-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--grass);
+        border-radius: 50%;
+        animation: blink 1.5s ease-in-out infinite;
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      /* Title */
+      .title {
+        font-family: "Lilita One", cursive;
+        font-size: clamp(3rem, 8vw, 6.5rem);
+        line-height: 1.05;
+        color: var(--white);
+        text-shadow:
+          4px 4px 0 var(--barn-orange),
+          8px 8px 0 rgba(0, 0, 0, 0.15);
+        margin-bottom: 8px;
+        animation: fadeSlideDown 0.8s ease-out 0.5s both;
+      }
+      .title span {
+        color: var(--golden);
+        position: relative;
+        display: inline-block;
+      }
+
+      .subtitle {
+        font-size: clamp(1rem, 2.5vw, 1.35rem);
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 40px;
+        line-height: 1.5;
+        animation: fadeSlideDown 0.8s ease-out 0.7s both;
+      }
+      .subtitle em {
+        color: var(--golden);
+        font-style: normal;
+        font-weight: 900;
+      }
+
+      /* GitHub Input Section */
+      .input-section {
+        animation: fadeSlideDown 0.8s ease-out 0.9s both;
+      }
+
+      .input-wrapper {
+        display: flex;
+        align-items: stretch;
+        max-width: 650px;
+        margin: 0 auto 16px;
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(15px);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 18px;
+        padding: 6px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+      }
+      .input-wrapper:focus-within {
+        border-color: var(--golden);
+        box-shadow:
+          0 0 30px rgba(255, 217, 61, 0.3),
+          0 0 60px rgba(255, 217, 61, 0.1);
+        transform: scale(1.02);
+        background: rgba(255, 255, 255, 0.18);
+      }
+
+      .input-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 16px;
+        flex-shrink: 0;
+      }
+      .input-icon svg {
+        width: 28px;
+        height: 28px;
+        fill: rgba(255, 255, 255, 0.7);
+        transition: fill 0.3s;
+      }
+      .input-wrapper:focus-within .input-icon svg {
+        fill: var(--golden);
+      }
+
+      .github-input {
+        flex: 1;
+        background: none;
+        border: none;
+        outline: none;
+        font-family: "Nunito", sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--white);
+        padding: 16px 8px;
+        min-width: 0;
+      }
+      .github-input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 600;
+      }
+
+      .scan-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: linear-gradient(
+          135deg,
+          var(--barn-orange),
+          var(--barn-red)
+        );
+        color: var(--white);
+        border: none;
+        border-radius: 13px;
+        padding: 16px 28px;
+        font-family: "Lilita One", cursive;
+        font-size: 1.1rem;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        white-space: nowrap;
+        position: relative;
+        overflow: hidden;
+      }
+      .scan-btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.2),
+          transparent
+        );
+        transition: left 0.5s;
+      }
+      .scan-btn:hover::before {
+        left: 100%;
+      }
+      .scan-btn:hover {
+        transform: scale(1.05) translateY(-2px);
+        box-shadow: 0 8px 25px rgba(229, 77, 46, 0.4);
+      }
+      .scan-btn:active {
+        transform: scale(0.98);
+      }
+
+      .scan-btn svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+        animation: scan-icon 2s ease-in-out infinite;
+      }
+      @keyframes scan-icon {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        50% {
+          transform: translateX(3px);
+        }
+      }
+
+      .input-hint {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 600;
+      }
+
+      /* Feature cards — dark bg for contrast */
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-top: 50px;
+        animation: fadeSlideDown 0.8s ease-out 1.1s both;
+      }
+      @media (max-width: 700px) {
+        .features {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .feature-card {
+        background: rgba(26, 35, 50, 0.78);
+        backdrop-filter: blur(12px);
+        border: 1.5px solid rgba(255, 217, 61, 0.2);
+        border-radius: 16px;
+        padding: 24px 20px;
+        text-align: center;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        cursor: default;
+        position: relative;
+        overflow: hidden;
+      }
+      .feature-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          transparent,
+          rgba(255, 255, 255, 0.05)
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .feature-card:hover::before {
+        opacity: 1;
+      }
+      .feature-card:hover {
+        transform: translateY(-8px) scale(1.03);
+        border-color: rgba(255, 217, 61, 0.5);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        background: rgba(26, 35, 50, 0.92);
+      }
+
+      .feature-icon {
+        font-size: 2.2rem;
+        margin-bottom: 12px;
+        display: block;
+        animation: bounce-icon 3s ease-in-out infinite;
+      }
+      .feature-card:nth-child(2) .feature-icon {
+        animation-delay: 0.5s;
+      }
+      .feature-card:nth-child(3) .feature-icon {
+        animation-delay: 1s;
+      }
+
+      @keyframes bounce-icon {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-8px);
+        }
+      }
+
+      .feature-title {
+        font-family: "Lilita One", cursive;
+        font-size: 1.1rem;
+        color: var(--golden);
+        margin-bottom: 6px;
+      }
+      .feature-desc {
+        font-size: 0.85rem;
+        color: var(--cream);
+        font-weight: 700;
+        line-height: 1.5;
+      }
+
+      @keyframes fadeSlideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ========== GOOSE SVG ========== */
+      .goose-left,
+      .goose-right {
+        position: absolute;
+        bottom: 12%;
+        z-index: 4;
+        animation: goose-bob 3s ease-in-out infinite;
+      }
+      .goose-left {
+        left: 5%;
+        animation-delay: 0.5s;
+      }
+      .goose-right {
+        right: 5%;
+        transform: scaleX(-1);
+      }
+
+      @keyframes goose-bob {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+      .goose-right {
+        animation-name: goose-bob-flip;
+      }
+      @keyframes goose-bob-flip {
+        0%,
+        100% {
+          transform: scaleX(-1) translateY(0);
+        }
+        50% {
+          transform: scaleX(-1) translateY(-10px);
+        }
+      }
+
+      /* Honk speech bubble */
+      .honk-bubble {
+        position: absolute;
+        top: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--white);
+        color: var(--dark);
+        font-family: "Lilita One", cursive;
+        font-size: 0.9rem;
+        padding: 6px 14px;
+        border-radius: 20px;
+        white-space: nowrap;
+        opacity: 0;
+        animation: honk 5s ease-in-out infinite;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+      .honk-bubble::after {
+        content: "";
+        position: absolute;
+        bottom: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 8px solid var(--white);
+      }
+      .goose-right .honk-bubble {
+        animation-delay: 2.5s;
+        animation-name: honk-flip;
+      }
+
+      @keyframes honk {
+        0%,
+        70%,
+        100% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(5px) scale(0.8);
+        }
+        75%,
+        95% {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0) scale(1);
+        }
+      }
+
+      @keyframes honk-flip {
+        0%,
+        70%,
+        100% {
+          opacity: 0;
+          transform: translateX(-50%) translateY(5px) scale(0.8) scaleX(-1);
+        }
+        75%,
+        95% {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0) scale(1) scaleX(-1);
+        }
+      }
+
+      /* ========== SCROLLING TICKER ========== */
+      .ticker-bar {
+        background: var(--dark);
+        border-top: 3px solid var(--barn-orange);
+        border-bottom: 3px solid var(--barn-orange);
+        padding: 14px 0;
+        overflow: hidden;
+        position: relative;
+      }
+      .ticker-track {
+        display: flex;
+        gap: 50px;
+        animation: ticker 25s linear infinite;
+        width: max-content;
+      }
+      .ticker-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        white-space: nowrap;
+        font-weight: 800;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.7);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      .ticker-item span {
+        color: var(--barn-orange);
+        font-size: 1.2rem;
+      }
+
+      @keyframes ticker {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(-50%);
+        }
+      }
+
+      /* ========== STATS SECTION ========== */
+      .stats-section {
+        background: linear-gradient(180deg, #0d1b2a, #1a2332);
+        padding: 80px 20px;
+        position: relative;
+        overflow: hidden;
+      }
+      .stats-section::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+          radial-gradient(
+            ellipse at 30% 50%,
+            rgba(58, 175, 255, 0.08),
+            transparent 70%
+          ),
+          radial-gradient(
+            ellipse at 70% 50%,
+            rgba(74, 222, 96, 0.08),
+            transparent 70%
+          );
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 24px;
+        max-width: 1000px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+      }
+      @media (max-width: 700px) {
+        .stats-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      .stat-card {
+        text-align: center;
+        padding: 30px 16px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        transition: all 0.4s;
+      }
+      .stat-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+        transform: translateY(-5px);
+        border-color: rgba(255, 217, 61, 0.3);
+      }
+
+      .stat-number {
+        font-family: "Lilita One", cursive;
+        font-size: 2.8rem;
+        background: linear-gradient(135deg, var(--golden), var(--barn-orange));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        line-height: 1;
+        margin-bottom: 8px;
+      }
+      .stat-label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      /* ========== HOW IT WORKS ========== */
+      .how-section {
+        background: linear-gradient(180deg, #1a2332, #0d1b2a);
+        padding: 80px 20px;
+        text-align: center;
+      }
+      .section-title {
+        font-family: "Lilita One", cursive;
+        font-size: clamp(2rem, 5vw, 3rem);
+        color: var(--white);
+        text-shadow: 3px 3px 0 var(--barn-orange);
+        margin-bottom: 50px;
+      }
+      .section-title span {
+        color: var(--golden);
+      }
+
+      .steps {
+        display: flex;
+        justify-content: center;
+        gap: 0;
+        max-width: 900px;
+        margin: 0 auto;
+        flex-wrap: wrap;
+      }
+
+      .step {
+        flex: 1;
+        min-width: 200px;
+        max-width: 280px;
+        padding: 30px 20px;
+        position: relative;
+      }
+      .step-num {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Lilita One", cursive;
+        font-size: 1.5rem;
+        color: var(--white);
+        margin: 0 auto 16px;
+        position: relative;
+        z-index: 1;
+      }
+      .step:nth-child(1) .step-num {
+        background: linear-gradient(135deg, var(--sky), var(--sky-deep));
+      }
+      .step:nth-child(3) .step-num {
+        background: linear-gradient(
+          135deg,
+          var(--barn-orange),
+          var(--barn-red)
+        );
+      }
+      .step:nth-child(5) .step-num {
+        background: linear-gradient(135deg, var(--grass), var(--grass-dark));
+      }
+
+      .step-num::after {
+        content: "";
+        position: absolute;
+        inset: -5px;
+        border-radius: 50%;
+        border: 2px dashed rgba(255, 255, 255, 0.2);
+        animation: spin-slow 10s linear infinite;
+      }
+      @keyframes spin-slow {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .step-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+      }
+      .step-title {
+        font-family: "Lilita One", cursive;
+        font-size: 1.15rem;
+        color: var(--golden);
+        margin-bottom: 6px;
+      }
+      .step-desc {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-weight: 600;
+        line-height: 1.5;
+      }
+
+      .arrow-connector {
+        display: flex;
+        align-items: center;
+        color: var(--barn-orange);
+        font-size: 1.8rem;
+        padding-top: 30px;
+        animation: arrow-pulse 1.5s ease-in-out infinite;
+      }
+      @media (max-width: 700px) {
+        .arrow-connector {
+          display: none;
+        }
+      }
+      @keyframes arrow-pulse {
+        0%,
+        100% {
+          opacity: 0.4;
+          transform: translateX(0);
+        }
+        50% {
+          opacity: 1;
+          transform: translateX(5px);
+        }
+      }
+
+      /* ========== CTA BOTTOM ========== */
+      .cta-section {
+        background: linear-gradient(
+          180deg,
+          #0d1b2a 0%,
+          #1a2332 50%,
+          var(--grass-dark) 100%
+        );
+        padding: 80px 20px 60px;
+        text-align: center;
+        position: relative;
+      }
+      .cta-box {
+        max-width: 600px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(15px);
+        border: 2px solid rgba(255, 217, 61, 0.25);
+        border-radius: 24px;
+        padding: 50px 40px;
+        position: relative;
+        overflow: hidden;
+      }
+      .cta-box::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(
+          from 0deg,
+          transparent,
+          rgba(255, 217, 61, 0.05),
+          transparent,
+          rgba(255, 138, 43, 0.05),
+          transparent
+        );
+        animation: spin-slow 15s linear infinite;
+      }
+      .cta-title {
+        font-family: "Lilita One", cursive;
+        font-size: 2rem;
+        color: var(--white);
+        margin-bottom: 12px;
+        position: relative;
+        z-index: 1;
+      }
+      .cta-desc {
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 600;
+        margin-bottom: 24px;
+        position: relative;
+        z-index: 1;
+      }
+      .cta-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: linear-gradient(135deg, var(--golden), var(--golden-dark));
+        color: var(--dark);
+        font-family: "Lilita One", cursive;
+        font-size: 1.2rem;
+        padding: 16px 36px;
+        border-radius: 60px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        letter-spacing: 1px;
+        position: relative;
+        z-index: 1;
+      }
+      .cta-btn:hover {
+        transform: scale(1.08) translateY(-3px);
+        box-shadow: 0 10px 30px rgba(255, 217, 61, 0.4);
+      }
+
+      /* Footer */
+      .footer {
+        background: #0a1520;
+        padding: 24px;
+        text-align: center;
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.35);
+        font-weight: 600;
+        border-top: 2px solid rgba(255, 255, 255, 0.05);
+      }
+      .footer span {
+        color: var(--golden);
+      }
+
+      /* Loading animation for scan button */
+      .scan-btn.loading {
+        pointer-events: none;
+        position: relative;
+      }
+      .scan-btn.loading::after {
+        content: "";
+        width: 20px;
+        height: 20px;
+        border: 3px solid transparent;
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        position: absolute;
+        right: 20px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Goose parade at bottom */
+      .goose-parade {
+        position: absolute;
+        bottom: 0;
+        left: -100px;
+        display: flex;
+        gap: 30px;
+        animation: parade 20s linear infinite;
+        z-index: 2;
+        opacity: 0.15;
+      }
+      @keyframes parade {
+        from {
+          transform: translateX(-200px);
+        }
+        to {
+          transform: translateX(calc(100vw + 200px));
+        }
+      }
+      .parade-goose {
+        font-size: 2rem;
+        animation: goose-step 0.5s ease-in-out infinite alternate;
+      }
+      .parade-goose:nth-child(2) {
+        animation-delay: 0.1s;
+      }
+      .parade-goose:nth-child(3) {
+        animation-delay: 0.2s;
+      }
+      .parade-goose:nth-child(4) {
+        animation-delay: 0.3s;
+      }
+      .parade-goose:nth-child(5) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes goose-step {
+        from {
+          transform: translateY(0) rotate(-3deg);
+        }
+        to {
+          transform: translateY(-5px) rotate(3deg);
+        }
+      }
+
+      /* Navbar */
+      .navbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 100;
+        padding: 16px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(26, 35, 50, 0.7);
+        backdrop-filter: blur(15px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        transition: background 0.3s;
+      }
+
+      .nav-logo {
+        font-family: "Lilita One", cursive;
+        font-size: 1.5rem;
+        color: var(--white);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+      }
+      .nav-logo .logo-text span {
+        color: var(--golden);
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 30px;
+        list-style: none;
+      }
+      .nav-links a {
+        color: rgba(255, 255, 255, 0.7);
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.9rem;
+        transition: color 0.3s;
+        letter-spacing: 0.5px;
+      }
+      .nav-links a:hover {
+        color: var(--golden);
+      }
+
+      @media (max-width: 600px) {
+        .nav-links {
+          display: none;
+        }
+        .scan-btn {
+          padding: 14px 18px;
+          font-size: 0.95rem;
+        }
+        .cta-box {
+          padding: 30px 20px;
+        }
+      }
+
+      /* Sprout wiggle for goose head */
+      @keyframes sprout-wiggle {
+        0%,
+        100% {
+          transform: rotate(-8deg);
+        }
+        50% {
+          transform: rotate(8deg);
+        }
+      }
+
+      /* Eye blink */
+      @keyframes eye-blink {
+        0%,
+        42%,
+        44%,
+        100% {
+          transform: scaleY(1);
+        }
+        43% {
+          transform: scaleY(0.1);
+        }
+      }
+
+      /* Accessibility: reduce motion */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01s !important;
+          transition-duration: 0.01s !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar">
+      <a href="#" class="nav-logo">
+        <!-- Cute mini goose logo -->
+        <svg
+          width="36"
+          height="36"
+          viewBox="0 0 100 100"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <ellipse
+            cx="50"
+            cy="55"
+            rx="32"
+            ry="36"
+            fill="#FFF5E0"
+            stroke="#3A3226"
+            stroke-width="4"
+          />
+          <!-- Beak -->
+          <ellipse
+            cx="50"
+            cy="48"
+            rx="10"
+            ry="5"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2.5"
+          />
+          <!-- Eyes -->
+          <circle cx="40" cy="38" r="3.5" fill="#3A3226" />
+          <circle cx="60" cy="38" r="3.5" fill="#3A3226" />
+          <!-- Sprout -->
+          <line
+            x1="50"
+            y1="22"
+            x2="50"
+            y2="10"
+            stroke="#5CB85C"
+            stroke-width="3"
+            stroke-linecap="round"
+          />
+          <ellipse
+            cx="44"
+            cy="8"
+            rx="5"
+            ry="4"
+            fill="#5CB85C"
+            transform="rotate(-30, 44, 8)"
+          />
+          <ellipse
+            cx="56"
+            cy="8"
+            rx="5"
+            ry="4"
+            fill="#5CB85C"
+            transform="rotate(30, 56, 8)"
+          />
+          <!-- Feet -->
+          <ellipse
+            cx="38"
+            cy="92"
+            rx="8"
+            ry="4"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2"
+          />
+          <ellipse
+            cx="62"
+            cy="92"
+            rx="8"
+            ry="4"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2"
+          />
+        </svg>
+        <div class="logo-text">Harnold's <span>Eye</span></div>
+      </a>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <!-- Stars -->
+      <div class="stars" id="stars"></div>
+
+      <!-- Sun -->
+      <div class="sun"></div>
+
+      <!-- Clouds -->
+      <div class="cloud cloud-1"></div>
+      <div class="cloud cloud-2"></div>
+      <div class="cloud cloud-3"></div>
+      <div class="cloud cloud-4"></div>
+
+      <!-- Floating Feathers -->
+      <div id="feathers"></div>
+
+      <!-- Main Content -->
+      <div class="content">
+        <div class="badge">
+          <div class="badge-dot"></div>
+          AI-Powered Vulnerability Scanner
+        </div>
+        <h1 class="title">Harnold's <span>Eye</span></h1>
+        <p class="subtitle">
+          AI-powered code vulnerability tracking.<br />
+          Because no bug escapes <em>the flock</em>. 🪶
+        </p>
+
+        <div class="input-section">
+          <div class="input-wrapper">
+            <div class="input-icon">
+              <svg viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"
+                />
+              </svg>
+            </div>
+            <input
+              type="url"
+              class="github-input"
+              placeholder="Paste your GitHub repo URL here..."
+              id="githubUrl"
+            />
+            <button class="scan-btn" id="scanBtn" onclick="handleScan()">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                />
+              </svg>
+              SCAN REPO
+            </button>
+          </div>
+          <div class="input-hint">
+            Supports public repos · Scans all branches · Results in seconds
+          </div>
+        </div>
+
+        <div class="features">
+          <div class="feature-card">
+            <span class="feature-icon">🛡️</span>
+            <div class="feature-title">Vulnerability Detection</div>
+            <div class="feature-desc">
+              AI scans every line for CVEs, injection risks, and insecure
+              patterns
+            </div>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">🦢</span>
+            <div class="feature-title">Flock Intelligence</div>
+            <div class="feature-desc">
+              Our goose-net of models cross-validates findings to eliminate
+              false positives
+            </div>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">⚡</span>
+            <div class="feature-title">Instant Remediation</div>
+            <div class="feature-desc">
+              Auto-generated fix suggestions with one-click PR creation
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Goose Characters — cute round kawaii style -->
+      <div class="goose-left" style="position: absolute">
+        <div class="honk-bubble">HONK! No bugs here!</div>
+        <svg
+          width="120"
+          height="140"
+          viewBox="0 0 120 140"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <!-- Body — big round blob like reference image -->
+          <ellipse
+            cx="60"
+            cy="80"
+            rx="42"
+            ry="48"
+            fill="#FFF5E0"
+            stroke="#3A3226"
+            stroke-width="3.5"
+          />
+          <!-- Beak — wide flat -->
+          <ellipse
+            cx="60"
+            cy="55"
+            rx="12"
+            ry="5.5"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2.5"
+          />
+          <!-- Eyes — small dots like reference -->
+          <circle
+            cx="47"
+            cy="44"
+            r="3.5"
+            fill="#3A3226"
+            style="
+              animation: eye-blink 4s ease-in-out infinite;
+              transform-origin: 47px 44px;
+            "
+          />
+          <circle
+            cx="73"
+            cy="44"
+            r="3.5"
+            fill="#3A3226"
+            style="
+              animation: eye-blink 4s ease-in-out infinite 0.05s;
+              transform-origin: 73px 44px;
+            "
+          />
+          <!-- Blush cheeks -->
+          <ellipse
+            cx="38"
+            cy="55"
+            rx="8"
+            ry="4.5"
+            fill="#FFB4B4"
+            opacity="0.35"
+          />
+          <ellipse
+            cx="82"
+            cy="55"
+            rx="8"
+            ry="4.5"
+            fill="#FFB4B4"
+            opacity="0.35"
+          />
+          <!-- Sprout on head — key feature from reference -->
+          <g
+            style="
+              animation: sprout-wiggle 3s ease-in-out infinite;
+              transform-origin: 60px 32px;
+            "
+          >
+            <line
+              x1="60"
+              y1="32"
+              x2="60"
+              y2="12"
+              stroke="#5CB85C"
+              stroke-width="3.5"
+              stroke-linecap="round"
+            />
+            <ellipse
+              cx="51"
+              cy="10"
+              rx="8"
+              ry="5.5"
+              fill="#5CB85C"
+              transform="rotate(-25, 51, 10)"
+            />
+            <ellipse
+              cx="69"
+              cy="10"
+              rx="8"
+              ry="5.5"
+              fill="#5CB85C"
+              transform="rotate(25, 69, 10)"
+            />
+          </g>
+          <!-- Feet — orange paddle feet -->
+          <ellipse
+            cx="44"
+            cy="128"
+            rx="14"
+            ry="5.5"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2.5"
+          />
+          <ellipse
+            cx="76"
+            cy="128"
+            rx="14"
+            ry="5.5"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2.5"
+          />
+          <!-- Tiny wing suggestion lines -->
+          <path
+            d="M18 72 Q8 80 18 92"
+            stroke="#3A3226"
+            stroke-width="2.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+          <path
+            d="M102 72 Q112 80 102 92"
+            stroke="#3A3226"
+            stroke-width="2.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+          <!-- Little shield accessory -->
+          <g transform="translate(44, 70) scale(0.55)">
+            <path
+              d="M12 0 L24 6 L24 18 Q12 26 0 18 L0 6 Z"
+              fill="var(--sky)"
+              stroke="var(--golden)"
+              stroke-width="2.5"
+            />
+            <text
+              x="12"
+              y="16"
+              text-anchor="middle"
+              fill="white"
+              font-size="12"
+              font-weight="bold"
+            >
+              ✓
+            </text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="goose-right" style="position: absolute">
+        <div class="honk-bubble">Code secure! HONK!</div>
+        <svg
+          width="120"
+          height="140"
+          viewBox="0 0 120 140"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <!-- Body -->
+          <ellipse
+            cx="60"
+            cy="80"
+            rx="42"
+            ry="48"
+            fill="#FFF5E0"
+            stroke="#3A3226"
+            stroke-width="3.5"
+          />
+          <!-- Beak -->
+          <ellipse
+            cx="60"
+            cy="55"
+            rx="12"
+            ry="5.5"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2.5"
+          />
+          <!-- Eyes — closed/happy like the headphone goose in reference -->
+          <path
+            d="M42 44 Q47 40 52 44"
+            stroke="#3A3226"
+            stroke-width="2.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+          <path
+            d="M68 44 Q73 40 78 44"
+            stroke="#3A3226"
+            stroke-width="2.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+          <!-- Blush cheeks -->
+          <ellipse
+            cx="38"
+            cy="52"
+            rx="8"
+            ry="4.5"
+            fill="#FFB4B4"
+            opacity="0.35"
+          />
+          <ellipse
+            cx="82"
+            cy="52"
+            rx="8"
+            ry="4.5"
+            fill="#FFB4B4"
+            opacity="0.35"
+          />
+          <!-- Headphones like reference -->
+          <path
+            d="M26 38 Q26 14 60 14 Q94 14 94 38"
+            stroke="#6C5CE7"
+            stroke-width="4.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+          <rect
+            x="18"
+            y="33"
+            width="14"
+            height="18"
+            rx="5"
+            fill="#6C5CE7"
+            stroke="#3A3226"
+            stroke-width="1.5"
+          />
+          <rect
+            x="88"
+            y="33"
+            width="14"
+            height="18"
+            rx="5"
+            fill="#6C5CE7"
+            stroke="#3A3226"
+            stroke-width="1.5"
+          />
+          <!-- Music notes floating -->
+          <text
+            x="10"
+            y="26"
+            font-size="14"
+            fill="#6C5CE7"
+            style="animation: bounce-icon 2s ease-in-out infinite"
+          >
+            ♪
+          </text>
+          <text
+            x="102"
+            y="22"
+            font-size="11"
+            fill="#6C5CE7"
+            style="animation: bounce-icon 2s ease-in-out infinite 0.4s"
+          >
+            ♫
+          </text>
+          <!-- Feet -->
+          <ellipse
+            cx="44"
+            cy="128"
+            rx="14"
+            ry="5.5"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2.5"
+          />
+          <ellipse
+            cx="76"
+            cy="128"
+            rx="14"
+            ry="5.5"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2.5"
+          />
+          <!-- Wing lines -->
+          <path
+            d="M18 72 Q8 80 18 92"
+            stroke="#3A3226"
+            stroke-width="2.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+          <path
+            d="M102 72 Q112 80 102 92"
+            stroke="#3A3226"
+            stroke-width="2.5"
+            fill="none"
+            stroke-linecap="round"
+          />
+          <!-- Magnifying glass accessory -->
+          <g transform="translate(42, 68) scale(0.55)">
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              stroke="var(--golden)"
+              stroke-width="3.5"
+            />
+            <line
+              x1="20"
+              y1="20"
+              x2="28"
+              y2="28"
+              stroke="var(--golden)"
+              stroke-width="3.5"
+              stroke-linecap="round"
+            />
+          </g>
+        </svg>
+      </div>
+
+      <!-- Fence -->
+      <div class="fence" id="fence">
+        <div class="fence-rail fence-rail-top"></div>
+        <div class="fence-rail fence-rail-bottom"></div>
+      </div>
+
+      <!-- Ground -->
+      <div class="ground" id="ground"></div>
+    </section>
+
+    <!-- Ticker Bar -->
+    <div class="ticker-bar">
+      <div class="ticker-track">
+        <div class="ticker-item"><span>🦆</span> SQL Injection Detected</div>
+        <div class="ticker-item"><span>🔒</span> XSS Vulnerability Patched</div>
+        <div class="ticker-item"><span>🪶</span> 47 Repos Scanned Today</div>
+        <div class="ticker-item">
+          <span>🛡️</span> Zero-Day Alert: CVE-2026-1337
+        </div>
+        <div class="ticker-item">
+          <span>✅</span> Dependency Updated Automatically
+        </div>
+        <div class="ticker-item">
+          <span>🦢</span> Flock AI Model v3.2 Active
+        </div>
+        <div class="ticker-item"><span>⚡</span> Mean Response Time: 2.3s</div>
+        <div class="ticker-item"><span>🎯</span> 99.7% Detection Accuracy</div>
+        <!-- Duplicate for seamless loop -->
+        <div class="ticker-item"><span>🦆</span> SQL Injection Detected</div>
+        <div class="ticker-item"><span>🔒</span> XSS Vulnerability Patched</div>
+        <div class="ticker-item"><span>🪶</span> 47 Repos Scanned Today</div>
+        <div class="ticker-item">
+          <span>🛡️</span> Zero-Day Alert: CVE-2026-1337
+        </div>
+        <div class="ticker-item">
+          <span>✅</span> Dependency Updated Automatically
+        </div>
+        <div class="ticker-item">
+          <span>🦢</span> Flock AI Model v3.2 Active
+        </div>
+        <div class="ticker-item"><span>⚡</span> Mean Response Time: 2.3s</div>
+        <div class="ticker-item"><span>🎯</span> 99.7% Detection Accuracy</div>
+      </div>
+    </div>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="stat1">0</div>
+          <div class="stat-label">Repos Scanned</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat2">0</div>
+          <div class="stat-label">Vulns Found</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat3">0%</div>
+          <div class="stat-label">Accuracy</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat4">0s</div>
+          <div class="stat-label">Avg Scan Time</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-section">
+      <h2 class="section-title">How The <span>Flock</span> Works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-icon">🔗</div>
+          <div class="step-title">Link Your Repo</div>
+          <div class="step-desc">
+            Paste any GitHub URL — public or private. We handle auth seamlessly.
+          </div>
+        </div>
+        <div class="arrow-connector">→</div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-icon">🦆</div>
+          <div class="step-title">Release the Geese</div>
+          <div class="step-desc">
+            Our AI flock analyzes every file, dependency, and config for
+            vulnerabilities.
+          </div>
+        </div>
+        <div class="arrow-connector">→</div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-icon">🛡️</div>
+          <div class="step-title">Get Protected</div>
+          <div class="step-desc">
+            Receive a full report with severity ratings and auto-fix
+            suggestions.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+      <div class="goose-parade">
+        <span class="parade-goose">🦆</span>
+        <span class="parade-goose">🦢</span>
+        <span class="parade-goose">🦆</span>
+        <span class="parade-goose">🦢</span>
+        <span class="parade-goose">🦆</span>
+      </div>
+      <div class="cta-box">
+        <h2 class="cta-title">Ready to Guard Your Code? 🦢</h2>
+        <p class="cta-desc">
+          Join thousands of developers who trust the flock to keep their code
+          safe.
+        </p>
+        <button
+          class="cta-btn"
+          onclick="
+            document.querySelector('.github-input').focus();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          "
+        >
+          🪶 START SCANNING FREE
+        </button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Harnold's Eye</span> © 2026 — Built with 🪶 — No bug escapes the
+      flock.
+    </footer>
+
+    <script>
+      // Generate stars
+      const starsEl = document.getElementById("stars");
+      for (let i = 0; i < 50; i++) {
+        const star = document.createElement("div");
+        star.className = "star";
+        star.style.left = Math.random() * 100 + "%";
+        star.style.top = Math.random() * 100 + "%";
+        star.style.animationDelay = Math.random() * 3 + "s";
+        star.style.width = Math.random() * 3 + 1 + "px";
+        star.style.height = star.style.width;
+        starsEl.appendChild(star);
+      }
+
+      // Generate feathers
+      const feathersEl = document.getElementById("feathers");
+      for (let i = 0; i < 8; i++) {
+        const feather = document.createElement("div");
+        feather.className = "feather";
+        feather.style.left = Math.random() * 100 + "%";
+        feather.style.animationDuration = 6 + Math.random() * 8 + "s";
+        feather.style.animationDelay = Math.random() * 10 + "s";
+        feather.style.opacity = 0.4 + Math.random() * 0.4;
+        feather.innerHTML = `<svg viewBox="0 0 20 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 0 C10 0 4 10 3 20 C2 30 8 40 10 40 C12 40 18 30 17 20 C16 10 10 0 10 0Z" fill="rgba(245,240,232,0.8)"/>
+      <line x1="10" y1="2" x2="10" y2="38" stroke="rgba(200,190,175,0.5)" stroke-width="0.5"/>
+    </svg>`;
+        feathersEl.appendChild(feather);
+      }
+
+      // Generate fence posts
+      const fenceEl = document.getElementById("fence");
+      const fenceWidth = window.innerWidth;
+      for (let i = 0; i < Math.ceil(fenceWidth / 42); i++) {
+        const post = document.createElement("div");
+        post.className = "fence-post";
+        fenceEl.appendChild(post);
+      }
+
+      // Generate grass
+      const groundEl = document.getElementById("ground");
+      for (let i = 0; i < 80; i++) {
+        const blade = document.createElement("div");
+        blade.className = "grass-blade";
+        blade.style.left = Math.random() * 100 + "%";
+        blade.style.height = 20 + Math.random() * 30 + "px";
+        blade.style.animationDelay = Math.random() * 3 + "s";
+        blade.style.opacity = 0.6 + Math.random() * 0.4;
+        groundEl.appendChild(blade);
+      }
+
+      // Animated counters
+      function animateCounter(el, target, suffix = "", duration = 2000) {
+        let start = 0;
+        const step = target / (duration / 16);
+        const interval = setInterval(() => {
+          start += step;
+          if (start >= target) {
+            start = target;
+            clearInterval(interval);
+          }
+          el.textContent =
+            (target >= 100
+              ? Math.floor(start).toLocaleString()
+              : start.toFixed(1)) + suffix;
+        }, 16);
+      }
+
+      // Intersection observer for stats
+      const statsObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              animateCounter(document.getElementById("stat1"), 12847, "");
+              animateCounter(document.getElementById("stat2"), 34291, "");
+              animateCounter(document.getElementById("stat3"), 99.7, "%");
+              animateCounter(document.getElementById("stat4"), 2.3, "s");
+              statsObserver.disconnect();
+            }
+          });
+        },
+        { threshold: 0.3 },
+      );
+      statsObserver.observe(document.querySelector(".stats-section"));
+
+      // Scan button handler
+      function handleScan() {
+        const url = document.getElementById("githubUrl").value.trim();
+        const btn = document.getElementById("scanBtn");
+
+        if (!url) {
+          document.getElementById("githubUrl").style.outline =
+            "2px solid var(--barn-red)";
+          document.getElementById("githubUrl").placeholder =
+            "⚠️  Please enter a GitHub URL first!";
+          setTimeout(() => {
+            document.getElementById("githubUrl").style.outline = "";
+            document.getElementById("githubUrl").placeholder =
+              "Paste your GitHub repo URL here...";
+          }, 2500);
+          return;
+        }
+
+        if (!url.includes("github.com")) {
+          alert(
+            "🦆 HONK! That doesn't look like a GitHub URL. Please try again!",
+          );
+          return;
+        }
+
+        btn.classList.add("loading");
+        btn.innerHTML = "🔍 SCANNING...";
+
+        setTimeout(() => {
+          window.location.href = "report.html?repo=" + encodeURIComponent(url);
+        }, 1200);
+      }
+
+      // Enter key on input
+      document.getElementById("githubUrl").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") handleScan();
+      });
+
+      window.addEventListener("pageshow", function () {
+        document.getElementById("githubUrl").value = "";
+      });
+    </script>
+  </body>
+</html>
