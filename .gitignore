@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Data and Models
+# Usually, you don't want to track large .pkl files or local data
+backend/api/data/
+backend/model/model.pkl
+
+# Logs
+*.log
+backend/api/quick_test_log.txt
+
+# OS generated files
+.DS_Store
+Thumbs.db
