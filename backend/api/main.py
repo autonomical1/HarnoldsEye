@@ -2,6 +2,9 @@
 FastAPI: accept a GitHub URL, run the C/C++ scanner (backend.py), then update
 one canonical JSON file + in-memory payload for the frontend.
 
+GET /api/report.pdf returns a ReportLab-generated PDF of the current vulnerability
+payload (same data as GET /api/vulnerabilities.json).
+
 Served / on-disk format: JSON array (files with no hits are omitted):
   [ { "file_name": "relative/path.c",
       "findings": [ { "line_numbers": [1, 10], "vulnerability_type": "...",
@@ -21,6 +24,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -35,6 +39,7 @@ _BACKEND_DIR = Path(__file__).resolve().parent.parent / "model"
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
+# Import backend first so its huggingface_hub logging patch runs before other HF imports.
 try:
     import backend as vuln_backend  # noqa: E402
 
@@ -115,7 +120,7 @@ def _gemini_verify_active() -> bool:
 
 def report_to_frontend_payload(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Build [{ "file_name", "findings": [{ "line_numbers", "vulnerability_type", optional "code_context" }] }, ...]
+    Build [{ "file_name", "findings": [{ "line_numbers", "vulnerability_type", optional "type_explanation", optional "code_context" }] }, ...]
     from backend consolidated report (after enrich + optional NVD). Omits files with no ranges.
     """
     out: List[Dict[str, Any]] = []
@@ -161,8 +166,11 @@ def report_to_frontend_payload(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             if isinstance(ctx, list) and ctx:
                 fd["code_context"] = ctx
             rc = v.get("related_cves")
-            if isinstance(rc, list) and rc:
-                fd["related_cves"] = rc
+            if isinstance(rc, list):
+                fd["related_cves"] = list(rc)
+            te = v.get("type_explanation")
+            if isinstance(te, str) and te.strip():
+                fd["type_explanation"] = te.strip()[:600]
             findings.append(fd)
         if findings:
             out.append({"file_name": path, "findings": findings})
@@ -234,8 +242,11 @@ def load_vulnerability_json_from_disk() -> None:
                         if isinstance(ctx, list) and ctx:
                             entry["code_context"] = ctx
                         rc = f.get("related_cves")
-                        if isinstance(rc, list) and rc:
-                            entry["related_cves"] = rc
+                        if isinstance(rc, list):
+                            entry["related_cves"] = list(rc)
+                        te = f.get("type_explanation")
+                        if isinstance(te, str) and te.strip():
+                            entry["type_explanation"] = te.strip()[:600]
                         clean.append(entry)
                 if clean:
                     out.append({"file_name": fn, "findings": clean})
@@ -510,6 +521,37 @@ async def get_vulnerabilities_json():
     Each finding may include "code_context" (blame-style line window from the last scan).
     """
     return _serve_vulnerability_payload()
+
+
+@app.get("/api/report.pdf")
+async def get_report_pdf():
+    """
+    Download a PDF built from the current vulnerability payload (memory or on-disk JSON).
+    Generated with ReportLab (flowable story / SimpleDocTemplate).
+    """
+    try:
+        import pdf_report
+    except ImportError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"PDF export unavailable: {e}",
+        ) from e
+
+    payload = _serve_vulnerability_payload()
+    pdf_bytes = pdf_report.build_vulnerability_pdf_bytes(
+        payload,
+        github_url=_scan_state.get("github_url"),
+        generated_at_utc=_utc_iso(),
+        scan_completed_at=_scan_state.get("completed_at"),
+    )
+    filename = "harnoldseye-vulnerability-report.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
 
 
 @app.get("/api/health")

@@ -15,9 +15,10 @@ import os
 import re
 import time
 import urllib.error
+from datetime import datetime, timedelta, timezone
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 NVD_API_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
@@ -45,13 +46,17 @@ _VTYPE_KEYWORDS: Dict[str, str] = {
 }
 
 
+def _env_truthy(name: str, default: str = "0") -> bool:
+    """systemd EnvironmentFile sometimes leaves quotes on values, e.g. NVD_CVE_LOOKUP=\"1\"."""
+    raw = os.environ.get(name, default)
+    if raw is None:
+        return False
+    v = str(raw).strip().strip('"').strip("'").lower()
+    return v in ("1", "true", "yes", "on")
+
+
 def _nvd_enabled() -> bool:
-    return os.environ.get("NVD_CVE_LOOKUP", "0").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+    return _env_truthy("NVD_CVE_LOOKUP", "0")
 
 
 def _normalize_cache_key(vtype: str) -> str:
@@ -75,6 +80,52 @@ def vulnerability_type_to_nvd_keyword(vtype: str) -> str:
     return "memory corruption C"
 
 
+def _parse_nvd_published_iso(s: str) -> datetime:
+    """Sort key: newest first; invalid / missing dates sort last."""
+    if not s or not isinstance(s, str):
+        return datetime.min.replace(tzinfo=timezone.utc)
+    t = s.strip().replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(t)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _nvd_optional_pub_window() -> Optional[Tuple[str, str]]:
+    """
+    NVD 2.0 requires *both* pubStartDate and pubEndDate together; sending only
+    pubStartDate returns HTTP 404. Maximum range is 120 consecutive days.
+
+    Default: no date filter (keyword search only); results are still sorted
+    newest-first in code. Set NVD_PUBLISHED_WINDOW_DAYS=1..120 to restrict.
+    """
+    raw = os.environ.get("NVD_PUBLISHED_WINDOW_DAYS", "0").strip().strip(
+        '"',
+    ).strip("'")
+    if not raw or raw in ("0", "false", "no", "off"):
+        return None
+    try:
+        days = int(float(raw))
+    except ValueError:
+        print("⚠ NVD_PUBLISHED_WINDOW_DAYS invalid; ignoring date window")
+        return None
+    if days < 1 or days > 120:
+        print(
+            "⚠ NVD_PUBLISHED_WINDOW_DAYS must be 1–120 (NVD API limit); "
+            "ignoring date window",
+        )
+        return None
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=days)
+    return (
+        start.strftime("%Y-%m-%dT00:00:00.000"),
+        end.strftime("%Y-%m-%dT23:59:59.999"),
+    )
+
+
 def fetch_nvd_cves_for_keyword(
     keyword: str,
     *,
@@ -83,25 +134,75 @@ def fetch_nvd_cves_for_keyword(
 ) -> List[Dict[str, Any]]:
     """
     Query NVD CVE 2.0 keywordSearch. Returns short records for UI (no full CVSS here).
-    """
-    api_key = os.environ.get("NVD_API_KEY", "").strip()
-    limit = max(1, min(int(limit), 20))
 
-    params = {
-        "keywordSearch": keyword,
-        "resultsPerPage": str(limit),
-    }
-    url = f"{NVD_API_BASE}?{urllib.parse.urlencode(params)}"
+    Fetches a larger page than ``limit``, optionally restricts to a recent publication
+    window (``NVD_PUBLISHED_WINDOW_DAYS``, max 120), then sorts by published date descending.
+
+    NVD returns matches in oldest-first order for a given ``startIndex``. When
+    ``totalResults`` exceeds our page size, a second request loads the *last* page so
+    the newest CVEs for the keyword are included (up to ``page_size`` per keyword).
+    """
+    api_key = (
+        os.environ.get("NVD_API_KEY", "").strip().strip('"').strip("'")
+    )
+    limit = max(1, min(int(limit), 20))
+    page_size = min(2000, max(80, limit * 25))
+
+    base_params: Dict[str, str] = {"keywordSearch": keyword}
+    pub_window = _nvd_optional_pub_window()
+    if pub_window:
+        base_params["pubStartDate"], base_params["pubEndDate"] = pub_window
+
     headers: Dict[str, str] = {}
     if api_key:
         headers["apiKey"] = api_key
 
-    req = urllib.request.Request(url, headers=headers, method="GET")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
-            payload = json.loads(resp.read().decode("utf-8", errors="replace"))
-    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, TimeoutError, OSError):
+    def _do_request(params_dict: Dict[str, str]) -> Optional[Dict[str, Any]]:
+        u = f"{NVD_API_BASE}?{urllib.parse.urlencode(params_dict)}"
+        req = urllib.request.Request(u, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+                return json.loads(resp.read().decode("utf-8", errors="replace"))
+        except urllib.error.HTTPError as e:
+            try:
+                body = e.read().decode("utf-8", errors="replace")[:400]
+            except Exception:
+                body = ""
+            print(f"⚠ NVD API HTTP {e.code} (keyword={keyword!r}): {body}")
+            return None
+        except urllib.error.URLError as e:
+            print(f"⚠ NVD API network error (keyword={keyword!r}): {e}")
+            return None
+        except (json.JSONDecodeError, TimeoutError, OSError) as e:
+            print(f"⚠ NVD API error (keyword={keyword!r}): {e}")
+            return None
+
+    first = _do_request(
+        {
+            **base_params,
+            "resultsPerPage": str(page_size),
+            "startIndex": "0",
+        },
+    )
+    if first is None:
         return []
+
+    total = int(first.get("totalResults") or 0)
+    if total == 0:
+        return []
+
+    payload: Dict[str, Any] = first
+    if total > page_size:
+        last_start = max(0, total - page_size)
+        second = _do_request(
+            {
+                **base_params,
+                "resultsPerPage": str(page_size),
+                "startIndex": str(last_start),
+            },
+        )
+        if second is not None:
+            payload = second
 
     out: List[Dict[str, Any]] = []
     vulns = payload.get("vulnerabilities")
@@ -139,10 +240,9 @@ def fetch_nvd_cves_for_keyword(
                 "published": published,
             }
         )
-        if len(out) >= limit:
-            break
 
-    return out
+    out.sort(key=lambda r: _parse_nvd_published_iso(str(r.get("published") or "")), reverse=True)
+    return out[:limit]
 
 
 def enrich_report_with_nvd_cves(report: Dict[str, Any]) -> None:
@@ -154,7 +254,9 @@ def enrich_report_with_nvd_cves(report: Dict[str, Any]) -> None:
 
     limit = max(1, min(int(os.environ.get("NVD_CVE_LIMIT", "5")), 20))
     # NVD: without API key, stay under ~5 requests / 30s
-    api_key = os.environ.get("NVD_API_KEY", "").strip()
+    api_key = (
+        os.environ.get("NVD_API_KEY", "").strip().strip('"').strip("'")
+    )
     delay_sec = float(os.environ.get("NVD_REQUEST_DELAY_SEC", "")) if os.environ.get(
         "NVD_REQUEST_DELAY_SEC", ""
     ).strip() else (0.7 if api_key else 6.5)
@@ -192,6 +294,5 @@ def enrich_report_with_nvd_cves(report: Dict[str, Any]) -> None:
                 continue
             vt = (v.get("vulnerability_type") or v.get("category") or "").strip() or "Unclassified"
             ck = _normalize_cache_key(vt)
-            rel = cache.get(ck)
-            if rel:
-                v["related_cves"] = rel
+            # Always set list (even empty) so API/JSON show "lookup ran" vs omitted key when NVD off.
+            v["related_cves"] = list(cache.get(ck, []))

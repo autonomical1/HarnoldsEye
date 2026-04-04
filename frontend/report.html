@@ -40,13 +40,34 @@
 
       body {
         font-family: "Nunito", sans-serif;
-        background: var(--dark);
+        /* Fixed to viewport so scrolling doesn’t shift sky vs. grass dramatically */
+        background:
+          radial-gradient(
+            circle at 12% 10%,
+            rgba(58, 175, 255, 0.16),
+            transparent 46%
+          ),
+          radial-gradient(
+            circle at 90% 65%,
+            rgba(74, 222, 96, 0.05),
+            transparent 44%
+          ),
+          linear-gradient(
+            180deg,
+            #2f7ec4 0%,
+            #245f96 22%,
+            #1a4a78 44%,
+            #142f4a 66%,
+            #101f32 88%,
+            #0c1828 100%
+          );
+        background-attachment: fixed;
         color: var(--cream);
         overflow-x: hidden;
         min-height: 100vh;
       }
 
-      /* ===== NAVBAR ===== */
+      /* ===== NAVBAR (matches index.html) ===== */
       .navbar {
         position: fixed;
         top: 0;
@@ -57,9 +78,11 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: rgba(26, 35, 50, 0.85);
-        backdrop-filter: blur(15px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        gap: 12px;
+        background: rgba(13, 22, 36, 0.92);
+        backdrop-filter: blur(16px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        transition: background 0.3s;
       }
       .nav-logo {
         font-family: "Lilita One", cursive;
@@ -83,6 +106,7 @@
         text-decoration: none;
         font-weight: 700;
         font-size: 0.9rem;
+        letter-spacing: 0.5px;
         transition: color 0.3s;
       }
       .nav-links a:hover {
@@ -108,6 +132,93 @@
         background: rgba(255, 255, 255, 0.18);
         border-color: var(--golden);
         color: var(--golden);
+      }
+
+      /* Navbar marching geese (index.html) */
+      .nav-goose-stage {
+        flex: 1;
+        overflow: hidden;
+        height: 54px;
+        position: relative;
+        margin-left: 20px;
+        min-width: 0;
+      }
+      .nav-goose-center {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 100%;
+        transform: translateY(-50%);
+      }
+      .nav-goose-track {
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        animation: nav-goose-march 40s linear infinite;
+      }
+      .nav-goose {
+        display: inline-block;
+        flex-shrink: 0;
+        animation: nav-goose-walk 0.45s ease-in-out infinite alternate;
+      }
+      .nav-goose:nth-child(2n) {
+        animation-delay: 0.07s;
+      }
+      .nav-goose:nth-child(3n) {
+        animation-delay: 0.14s;
+      }
+      .nav-goose:nth-child(4n) {
+        animation-delay: 0.21s;
+      }
+      .nav-goose:nth-child(5n) {
+        animation-delay: 0.28s;
+      }
+      .nav-goose:nth-child(6n) {
+        animation-delay: 0.35s;
+      }
+      @keyframes nav-goose-walk {
+        from {
+          transform: translateY(0px) rotate(-4deg);
+        }
+        to {
+          transform: translateY(-5px) rotate(4deg);
+        }
+      }
+      .nav-goose .foot-l {
+        animation: foot-l 0.45s ease-in-out infinite;
+      }
+      .nav-goose .foot-r {
+        animation: foot-r 0.45s ease-in-out infinite;
+      }
+      @keyframes foot-l {
+        0%,
+        100% {
+          transform: rotate(-20deg);
+          transform-origin: 50% 0%;
+        }
+        50% {
+          transform: rotate(15deg);
+          transform-origin: 50% 0%;
+        }
+      }
+      @keyframes foot-r {
+        0%,
+        100% {
+          transform: rotate(15deg);
+          transform-origin: 50% 0%;
+        }
+        50% {
+          transform: rotate(-20deg);
+          transform-origin: 50% 0%;
+        }
+      }
+      @keyframes nav-goose-march {
+        0% {
+          transform: translateX(-50%);
+        }
+        100% {
+          transform: translateX(0%);
+        }
       }
 
       /* ===== SCANNING OVERLAY ===== */
@@ -593,6 +704,7 @@
 
       .vuln-finding {
         margin-bottom: 1rem;
+        overflow: visible;
       }
       .vuln-finding:last-child {
         margin-bottom: 0;
@@ -617,13 +729,14 @@
       }
       .vuln-details {
         border-radius: 9px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(8, 14, 24, 0.92);
+        backdrop-filter: blur(10px);
         overflow: hidden;
       }
       .vuln-details--cve {
-        border-color: rgba(58, 175, 255, 0.22);
-        background: rgba(58, 175, 255, 0.05);
+        border-color: rgba(58, 175, 255, 0.35);
+        background: rgba(10, 22, 38, 0.94);
       }
       .vuln-details__summary {
         list-style: none;
@@ -654,11 +767,11 @@
         transform: rotate(90deg);
       }
       .vuln-details__summary:hover {
-        background: rgba(255, 255, 255, 0.06);
-        color: rgba(255, 255, 255, 0.88);
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.95);
       }
       .vuln-details--cve .vuln-details__summary:hover {
-        background: rgba(58, 175, 255, 0.1);
+        background: rgba(58, 175, 255, 0.16);
       }
       .vuln-details__hint {
         font-weight: 600;
@@ -669,10 +782,26 @@
       }
       .vuln-details__body {
         padding: 0 0.45rem 0.55rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(5, 10, 18, 0.55);
       }
       .vuln-details__body--cve {
         padding-top: 0.35rem;
+      }
+      .vuln-cve-empty {
+        margin: 0;
+        font-size: 0.74rem;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.72);
+        font-weight: 600;
+      }
+      .vuln-cve-code {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 0.68rem;
+        color: rgba(180, 220, 255, 0.9);
+        background: rgba(0, 0, 0, 0.25);
+        padding: 1px 6px;
+        border-radius: 4px;
       }
       .vuln-cve-list {
         list-style: none;
@@ -711,11 +840,11 @@
         display: flex;
         flex-direction: column;
         border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         overflow: hidden;
         font-family: "JetBrains Mono", ui-monospace, monospace;
         font-size: 0.72rem;
-        background: rgba(0, 0, 0, 0.28);
+        background: rgba(4, 8, 16, 0.95);
       }
       .vuln-blame-line {
         display: grid;
@@ -851,6 +980,53 @@
         letter-spacing: 0.03em;
         color: rgba(255, 186, 120, 0.92);
         margin-top: 0.15rem;
+      }
+
+      .vuln-type-with-tip {
+        position: relative;
+        display: inline-block;
+        margin-top: 0.15rem;
+        cursor: help;
+        outline: none;
+        z-index: 25;
+      }
+      .vuln-type-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        color: rgba(255, 186, 120, 0.92);
+        border-bottom: 1px dashed rgba(255, 186, 120, 0.45);
+      }
+      .vuln-type-popup {
+        display: none;
+        position: absolute;
+        left: 0;
+        top: calc(100% + 10px);
+        bottom: auto;
+        z-index: 100;
+        min-width: 220px;
+        max-width: min(380px, 92vw);
+        max-height: min(38vh, 260px);
+        overflow-y: auto;
+        padding: 12px 14px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.5;
+        letter-spacing: 0.02em;
+        color: rgba(255, 255, 255, 0.95);
+        background: rgba(10, 16, 28, 0.98);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 12px;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+        pointer-events: none;
+      }
+      .vuln-type-with-tip:hover .vuln-type-popup,
+      .vuln-type-with-tip:focus-within .vuln-type-popup {
+        display: block;
+      }
+      .vuln-blame-type[title] {
+        cursor: help;
+        border-bottom: 1px dotted rgba(255, 186, 120, 0.5);
       }
       .vuln-file {
         font-family: "JetBrains Mono", monospace;
@@ -1000,13 +1176,117 @@
       .bg-dots {
         position: fixed;
         inset: 0;
-        z-index: 0;
+        z-index: 1;
         pointer-events: none;
         background-image: radial-gradient(
           rgba(255, 255, 255, 0.03) 1px,
           transparent 1px
         );
         background-size: 30px 30px;
+      }
+
+      .scene-meadow {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 200px;
+        pointer-events: none;
+        z-index: 2;
+        overflow: hidden;
+      }
+      .scene-meadow::before {
+        content: "";
+        position: absolute;
+        inset: auto -5% -28px;
+        height: 170px;
+        background: linear-gradient(
+          180deg,
+          #53d56c 0%,
+          #39b652 58%,
+          #2d9e3f 100%
+        );
+        border-radius: 46% 54% 0 0 / 26% 24% 0 0;
+        filter: drop-shadow(0 -8px 22px rgba(30, 125, 55, 0.35));
+      }
+      .scene-meadow::after {
+        content: "";
+        position: absolute;
+        left: -8%;
+        right: -8%;
+        bottom: 112px;
+        height: 86px;
+        background: radial-gradient(
+          ellipse at top,
+          rgba(120, 255, 145, 0.45),
+          transparent 68%
+        );
+      }
+      .meadow-grass {
+        position: absolute;
+        inset: auto 0 0;
+        height: 170px;
+      }
+      .meadow-blade {
+        position: absolute;
+        bottom: -14px;
+        width: 6px;
+        border-radius: 10px 10px 0 0;
+        background: linear-gradient(to top, #2f9d41, #7aeb8f);
+        transform-origin: bottom center;
+        animation: meadow-sway 3.2s ease-in-out infinite;
+      }
+      @keyframes meadow-sway {
+        0%,
+        100% {
+          transform: rotate(-3deg);
+        }
+        50% {
+          transform: rotate(3deg);
+        }
+      }
+
+      .scene-goose-row {
+        position: fixed;
+        left: 50%;
+        bottom: 34px;
+        transform: translateX(-50%);
+        width: calc(100vw - 16px);
+        height: 130px;
+        pointer-events: none;
+        z-index: 4;
+      }
+      .scene-goose-item {
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        width: clamp(80px, 8.8vw, 108px);
+        height: auto;
+        --goose-x: 0px;
+        --goose-base: scale(1) rotate(0deg);
+        --goose-bob: -8px;
+        --goose-opacity: 1;
+        --goose-lift: 0px;
+        transform: translateX(calc(-50% + var(--goose-x))) var(--goose-base);
+        opacity: var(--goose-opacity);
+        bottom: var(--goose-lift);
+        animation: scene-goose-row-bob 3s ease-in-out infinite;
+        transform-origin: center bottom;
+      }
+      .scene-goose-item svg {
+        width: 100%;
+        height: auto;
+      }
+      @keyframes scene-goose-row-bob {
+        0%,
+        100% {
+          transform: translateX(calc(-50% + var(--goose-x))) var(--goose-base)
+            translateY(0);
+        }
+        50% {
+          transform: translateX(calc(-50% + var(--goose-x))) var(--goose-base)
+            translateY(var(--goose-bob));
+        }
       }
 
       /* Footer */
@@ -1133,7 +1413,21 @@
           display: none;
         }
         .report-page {
-          padding: 80px 16px 30px;
+          padding: 88px 16px 100px;
+        }
+        .nav-goose-stage {
+          display: none;
+        }
+        .scene-meadow {
+          height: 170px;
+        }
+        .scene-goose-row {
+          bottom: 20px;
+          width: calc(100vw - 10px);
+          height: 100px;
+        }
+        .scene-goose-item {
+          width: 62px;
         }
       }
 
@@ -1147,16 +1441,15 @@
       }
 
       /* Minimal report-specific styling */
-      .bg-grid,
-      .bg-dots,
-      .navbar,
       .report-goose,
       .footer {
         display: none !important;
       }
 
       .report-page {
-        padding: 80px 24px 40px;
+        position: relative;
+        z-index: 10;
+        padding: 96px 24px 120px;
         max-width: 900px;
         margin: 0 auto;
         min-height: 100vh;
@@ -1180,6 +1473,9 @@
         letter-spacing: -0.04em;
         color: #ffffff;
         margin-bottom: 10px;
+        text-shadow:
+          2px 2px 0 rgba(255, 138, 43, 0.45),
+          0 0 28px rgba(255, 217, 61, 0.2);
       }
 
       .vuln-list {
@@ -1188,11 +1484,15 @@
       }
 
       .vuln-card {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(10, 18, 32, 0.94);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.14);
         border-radius: 24px;
         padding: 22px 24px;
-        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
+        box-shadow:
+          0 12px 40px rgba(0, 0, 0, 0.45),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        overflow: visible;
       }
 
       .vuln-name {
@@ -1212,8 +1512,9 @@
         display: block;
         font-family: "JetBrains Mono", monospace;
         font-size: 0.95rem;
-        color: #c5e8ff;
-        background: rgba(58, 175, 255, 0.12);
+        color: #d6efff;
+        background: rgba(12, 40, 72, 0.88);
+        border: 1px solid rgba(58, 175, 255, 0.28);
         padding: 12px 14px;
         border-radius: 14px;
         margin-bottom: 10px;
@@ -1228,10 +1529,10 @@
         display: inline-block;
         padding: 10px 18px;
         margin-bottom: 24px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(18, 32, 52, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 12px;
-        color: rgba(255, 255, 255, 0.8);
+        color: rgba(255, 255, 255, 0.92);
         text-decoration: none;
         font-family: "Nunito", sans-serif;
         font-weight: 700;
@@ -1241,16 +1542,146 @@
       }
 
       .report-back-btn:hover {
-        background: rgba(255, 255, 255, 0.18);
-        border-color: rgba(255, 217, 61, 0.6);
+        background: rgba(28, 48, 78, 0.98);
+        border-color: rgba(255, 217, 61, 0.65);
         color: #ffd93d;
+      }
+
+      .report-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding: 14px 18px;
+        background: rgba(8, 16, 28, 0.88);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      }
+      .report-toolbar .report-back-btn {
+        margin-bottom: 0;
+      }
+      .report-toolbar .report-pdf-btn {
+        margin-left: auto;
+      }
+      .report-pdf-btn {
+        display: inline-block;
+        padding: 10px 18px;
+        background: rgba(20, 55, 92, 0.95);
+        border: 1px solid rgba(58, 175, 255, 0.45);
+        border-radius: 12px;
+        color: #dff3ff;
+        font-family: "Nunito", sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      .report-pdf-btn:hover:not(:disabled) {
+        background: rgba(30, 75, 118, 0.98);
+        border-color: rgba(255, 217, 61, 0.55);
+        color: #ffffff;
+      }
+      .report-pdf-btn:disabled {
+        opacity: 0.65;
+        cursor: wait;
       }
     </style>
   </head>
   <body>
+    <!-- Navbar (same structure as index.html) -->
+    <nav class="navbar">
+      <a href="index.html" class="nav-logo">
+        <svg
+          width="36"
+          height="36"
+          viewBox="0 0 100 100"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <ellipse
+            cx="50"
+            cy="55"
+            rx="32"
+            ry="36"
+            fill="#FFF5E0"
+            stroke="#3A3226"
+            stroke-width="4"
+          />
+          <ellipse
+            cx="50"
+            cy="48"
+            rx="10"
+            ry="5"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2.5"
+          />
+          <circle cx="40" cy="38" r="3.5" fill="#3A3226" />
+          <circle cx="60" cy="38" r="3.5" fill="#3A3226" />
+          <line
+            x1="50"
+            y1="22"
+            x2="50"
+            y2="10"
+            stroke="#5CB85C"
+            stroke-width="3"
+            stroke-linecap="round"
+          />
+          <ellipse
+            cx="44"
+            cy="8"
+            rx="5"
+            ry="4"
+            fill="#5CB85C"
+            transform="rotate(-30, 44, 8)"
+          />
+          <ellipse
+            cx="56"
+            cy="8"
+            rx="5"
+            ry="4"
+            fill="#5CB85C"
+            transform="rotate(30, 56, 8)"
+          />
+          <ellipse
+            cx="38"
+            cy="92"
+            rx="8"
+            ry="4"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2"
+          />
+          <ellipse
+            cx="62"
+            cy="92"
+            rx="8"
+            ry="4"
+            fill="#F0A030"
+            stroke="#3A3226"
+            stroke-width="2"
+          />
+        </svg>
+        <div class="logo-text">Harnold's <span>Eye</span></div>
+      </a>
+      <div class="nav-goose-stage" id="navGooseStage">
+        <div class="nav-goose-center">
+          <div class="nav-goose-track" id="navGooseTrack"></div>
+        </div>
+      </div>
+    </nav>
+
     <!-- Background effects -->
     <div class="bg-grid"></div>
     <div class="bg-dots"></div>
+    <div class="scene-meadow" aria-hidden="true">
+      <div class="meadow-grass" id="meadowGrass"></div>
+    </div>
+    <div class="scene-goose-row" id="sceneGooseRow" aria-hidden="true"></div>
 
     <!-- Scanning Overlay -->
     <div class="scan-overlay" id="scanOverlay">
@@ -1393,7 +1824,12 @@
 
 
     <main class="report-page" id="reportPage">
-      <a href="index.html" class="report-back-btn">← New Scan</a>
+      <div class="report-toolbar">
+        <a href="index.html" class="report-back-btn">← New Scan</a>
+        <button type="button" class="report-pdf-btn" id="reportPdfBtn">
+          Download Report
+        </button>
+      </div>
       <div class="report-title-area">
         <h1 class="report-title" id="reportStatus">Loading vulnerability status...</h1>
       </div>
@@ -1419,10 +1855,77 @@
       const SCAN_URL = `${BACKEND_BASE_URL}/api/scan`;
       const STATUS_URL = `${BACKEND_BASE_URL}/api/scan/status`;
       const VULN_URL = `${BACKEND_BASE_URL}/api/vulnerabilities.json`;
+      const REPORT_PDF_URL = `${BACKEND_BASE_URL}/api/report.pdf`;
       const POLL_DELAY_MS = 1000;
 
       /** Set from GET /api/health before scan — false when server has no GEMINI_API_KEY. */
       let geminiVerifyConfigured = true;
+
+      function makeNavGooseSVG(tint) {
+        const bodyColors = [
+          "#FFF5E0",
+          "#FFEFD5",
+          "#FFF8EC",
+          "#FFFAF0",
+          "#FAEBD7",
+        ];
+        const beakColors = [
+          "#F0A030",
+          "#E8952A",
+          "#F5A828",
+          "#ED9A20",
+          "#F2A535",
+        ];
+        const sproutColors = [
+          "#5CB85C",
+          "#4CAF50",
+          "#66BB6A",
+          "#43A047",
+          "#56A856",
+        ];
+        const i = tint % bodyColors.length;
+        return `<svg width="38" height="50" viewBox="0 0 60 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="30" cy="52" rx="20" ry="24" fill="${bodyColors[i]}" stroke="#3A3226" stroke-width="2.5"/>
+      <g class="beak">
+        <polygon points="48,36 56,39 48,42" fill="${beakColors[i]}" stroke="#3A3226" stroke-width="1.5" stroke-linejoin="round"/>
+      </g>
+      <circle cx="42" cy="34" r="2.5" fill="#3A3226"/>
+      <circle cx="43" cy="33.2" r="0.8" fill="white"/>
+      <ellipse cx="36" cy="40" rx="5" ry="3" fill="#FFB4B4" opacity="0.35"/>
+      <g class="sprout" style="animation:sprout-wiggle 3s ease-in-out infinite; transform-origin:30px 28px;">
+        <line x1="30" y1="28" x2="30" y2="14" stroke="${sproutColors[i]}" stroke-width="2.5" stroke-linecap="round"/>
+        <ellipse cx="25" cy="12" rx="5" ry="3.5" fill="${sproutColors[i]}" transform="rotate(-25,25,12)"/>
+        <ellipse cx="35" cy="12" rx="5" ry="3.5" fill="${sproutColors[i]}" transform="rotate(25,35,12)"/>
+      </g>
+      <ellipse cx="22" cy="52" rx="10" ry="7" fill="rgba(200,185,160,0.4)" stroke="#3A3226" stroke-width="1.5" transform="rotate(-10,22,52)"/>
+      <g class="foot-l" style="transform-origin:26px 74px;">
+        <line x1="26" y1="74" x2="20" y2="80" stroke="#F0A030" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="20" y1="80" x2="15" y2="79" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+        <line x1="20" y1="80" x2="18" y2="77" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+        <line x1="20" y1="80" x2="22" y2="77" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <g class="foot-r" style="transform-origin:34px 74px;">
+        <line x1="34" y1="74" x2="40" y2="80" stroke="#F0A030" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="40" y1="80" x2="46" y2="79" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+        <line x1="40" y1="80" x2="43" y2="77" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+        <line x1="40" y1="80" x2="38" y2="77" stroke="#F0A030" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+      }
+
+      function buildGooseTrack() {
+        const track = document.getElementById("navGooseTrack");
+        const stage = document.getElementById("navGooseStage");
+        if (!track || !stage) return;
+        const stageWidth = stage.offsetWidth || window.innerWidth;
+        /* Sparser parade: wider spacing between navbar geese */
+        const count = Math.ceil((stageWidth * 2) / 72) + 2;
+        let html = "";
+        for (let i = 0; i < count; i++) {
+          html += `<span class="nav-goose">${makeNavGooseSVG(i)}</span>`;
+        }
+        track.innerHTML = html + html;
+      }
 
       // Generate scan feathers
       const sf = document.getElementById("scanFeathers");
@@ -1435,6 +1938,105 @@
         f.innerHTML = `<svg viewBox="0 0 16 32" fill="none"><path d="M8 0 C8 0 3 8 2 16 C1 24 6 32 8 32 C10 32 15 24 14 16 C13 8 8 0 8 0Z" fill="rgba(245,240,232,0.6)"/></svg>`;
         sf.appendChild(f);
       }
+
+      function generateMeadowGrass() {
+        const host = document.getElementById("meadowGrass");
+        if (!host) return;
+        host.innerHTML = "";
+        for (let i = 0; i < 150; i++) {
+          const blade = document.createElement("div");
+          blade.className = "meadow-blade";
+          blade.style.left = Math.random() * 100 + "%";
+          blade.style.height = 28 + Math.random() * 76 + "px";
+          blade.style.opacity = 0.56 + Math.random() * 0.38;
+          blade.style.animationDelay = Math.random() * 2.8 + "s";
+          blade.style.animationDuration = 2.8 + Math.random() * 1.8 + "s";
+          host.appendChild(blade);
+        }
+      }
+
+      function gooseSvgMarkup(eyeMode) {
+        const eyeHtml =
+          eyeMode === "closed"
+            ? `<path d="M42 44 Q47 40 52 44" stroke="#3A3226" stroke-width="2.5" fill="none" stroke-linecap="round" /><path d="M68 44 Q73 40 78 44" stroke="#3A3226" stroke-width="2.5" fill="none" stroke-linecap="round" />`
+            : `<circle cx="47" cy="44" r="3.5" fill="#3A3226" /><circle cx="73" cy="44" r="3.5" fill="#3A3226" />`;
+
+        return `<svg viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="80" rx="42" ry="48" fill="#FFF5E0" stroke="#3A3226" stroke-width="3.5" /><ellipse cx="60" cy="55" rx="12" ry="5.5" fill="#F0A030" stroke="#3A3226" stroke-width="2.5" />${eyeHtml}<ellipse cx="38" cy="55" rx="8" ry="4.5" fill="#FFB4B4" opacity="0.35" /><ellipse cx="82" cy="55" rx="8" ry="4.5" fill="#FFB4B4" opacity="0.35" /><ellipse cx="44" cy="128" rx="14" ry="5.5" fill="#F0A030" stroke="#3A3226" stroke-width="2.5" /><ellipse cx="76" cy="128" rx="14" ry="5.5" fill="#F0A030" stroke="#3A3226" stroke-width="2.5" /><path d="M18 72 Q8 80 18 92" stroke="#3A3226" stroke-width="2.5" fill="none" stroke-linecap="round" /><path d="M102 72 Q112 80 102 92" stroke="#3A3226" stroke-width="2.5" fill="none" stroke-linecap="round" /><g transform="translate(78, 40) rotate(15)"><circle cx="0" cy="0" r="14" fill="none" stroke="#FFD93D" stroke-width="3" /><line x1="10" y1="10" x2="20" y2="20" stroke="#FFD93D" stroke-width="3" stroke-linecap="round" /></g></svg>`;
+      }
+
+      function renderGooseRow() {
+        const row = document.getElementById("sceneGooseRow");
+        if (!row) return;
+        const rowWidth = row.clientWidth || window.innerWidth;
+        const sidePadding = 44;
+        /* Fewer geese, evenly spaced left→right for symmetry (fixes empty bottom-right) */
+        const inner = rowWidth - sidePadding * 2;
+        let gooseCount = Math.max(4, Math.min(6, Math.floor(rowWidth / 210)));
+        let widths = Array.from(
+          { length: gooseCount },
+          () => 68 + Math.random() * 36,
+        );
+        while (
+          widths.length > 4 &&
+          widths.reduce((a, b) => a + b, 0) > inner * 0.98
+        ) {
+          widths.pop();
+        }
+        const n = widths.length;
+        const tw = widths.reduce((a, b) => a + b, 0);
+        const slack = Math.max(0, inner - tw);
+        const gap = n > 1 ? slack / (n - 1) : 0;
+        const searchTargetX = (Math.random() - 0.5) * rowWidth * 0.2;
+
+        const geese = [];
+        let cursor = -rowWidth / 2 + sidePadding;
+        for (let i = 0; i < n; i++) {
+          const widthPx = widths[i];
+          const x = cursor + widthPx / 2;
+          const depth = (widthPx - 68) / 36;
+          const y = 4 + (1 - depth) * 22 + Math.random() * 8;
+          const toward = searchTargetX - x;
+          const facing = toward < 0 ? -1 : 1;
+          const rotate = Math.max(
+            -12,
+            Math.min(
+              12,
+              (toward / (rowWidth * 0.5)) * 8 + (Math.random() * 3 - 1.5),
+            ),
+          );
+
+          geese.push({
+            eye: Math.random() < 0.45 ? "closed" : "open",
+            widthPx,
+            x,
+            y,
+            facing,
+            rotate,
+            opacity: 0.78 + depth * 0.22,
+            bob: -(5 + depth * 6),
+            delay: (Math.random() * 0.9).toFixed(2) + "s",
+            z: Math.round(depth * 10),
+          });
+
+          cursor += widthPx + (i < n - 1 ? gap : 0);
+        }
+
+        geese.sort((a, b) => a.z - b.z);
+        row.innerHTML = geese
+          .map((g) => {
+            const base = `${g.facing === -1 ? "scaleX(-1) " : ""}rotate(${g.rotate.toFixed(1)}deg)`;
+            const style = `width:${g.widthPx.toFixed(1)}px;--goose-x:${g.x.toFixed(1)}px;--goose-base:${base};--goose-bob:${g.bob.toFixed(1)}px;--goose-lift:${g.y.toFixed(1)}px;--goose-opacity:${g.opacity.toFixed(2)};animation-delay:${g.delay};z-index:${g.z};`;
+            return `<div class="scene-goose-item" style="${style}">${gooseSvgMarkup(g.eye)}</div>`;
+          })
+          .join("");
+      }
+
+      buildGooseTrack();
+      window.addEventListener("resize", buildGooseTrack);
+
+      generateMeadowGrass();
+      renderGooseRow();
+      window.addEventListener("resize", renderGooseRow);
 
       function setScanOverlay(text, statusText, pct) {
         document.getElementById("scanText").textContent = text;
@@ -1483,6 +2085,15 @@
           .replace(/"/g, "&quot;");
       }
 
+      function escapeHtmlAttr(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/\n/g, " ")
+          .replace(/\r/g, " ");
+      }
+
       /** C/C++ syntax highlight for blame lines; falls back to escaped plain text if Prism fails. */
       function highlightCppSource(raw) {
         const s = raw != null ? String(raw) : "";
@@ -1509,12 +2120,36 @@
           .join(" ");
       }
 
+      /** Hover/focus popup when Gemini provided type_explanation; else plain label. */
+      function renderVulnTypeBlock(displayLabel, rawExplanation) {
+        if (!displayLabel) return "";
+        const label = escapeHtml(displayLabel);
+        const tip =
+          rawExplanation != null && String(rawExplanation).trim()
+            ? String(rawExplanation).trim()
+            : "";
+        if (!tip) {
+          return `<div class="vuln-type">${label}</div>`;
+        }
+        return `<div class="vuln-type-with-tip" tabindex="0">
+    <span class="vuln-type-label">${label}</span>
+    <div class="vuln-type-popup" role="tooltip">${escapeHtml(tip)}</div>
+  </div>`;
+      }
+
       function renderCodeContextBlock(f, typDisplay) {
         const ctx = f.code_context;
         if (!Array.isArray(ctx) || !ctx.length) return "";
         const typEscaped = typDisplay ? escapeHtml(typDisplay) : "";
+        const tipRaw =
+          f.type_explanation != null && String(f.type_explanation).trim()
+            ? String(f.type_explanation).trim()
+            : "";
+        const titleAttr = tipRaw
+          ? ` title="${escapeHtmlAttr(tipRaw)}"`
+          : "";
         const typePillHtml = typEscaped
-          ? `<span class="vuln-blame-type">${typEscaped}</span>`
+          ? `<span class="vuln-blame-type"${titleAttr}>${typEscaped}</span>`
           : "";
         const rows = ctx
           .map((row) => {
@@ -1586,22 +2221,30 @@
         return `<ul class="vuln-cve-list">${rows}</ul>`;
       }
 
-      /** Collapsible source + CVE blocks under each line finding (closed by default). */
-      function renderFindingCollapsibleSections(blameHtml, cvesListHtml) {
+      /** Collapsible source + CVE blocks. Related CVEs is always listed; empty NVD → placeholder. */
+      function renderFindingCollapsibleSections(
+        blameHtml,
+        cvesListHtml,
+        nvdLookupRan,
+      ) {
         const hasBlame = Boolean(blameHtml);
-        const hasCves = Boolean(cvesListHtml);
-        if (!hasBlame && !hasCves) return "";
+        const hasCveItems = Boolean(cvesListHtml);
         const parts = ['<div class="vuln-finding-sections">'];
         if (hasBlame) {
           parts.push(
             `<details class="vuln-details vuln-details--blame"><summary class="vuln-details__summary">Source context</summary><div class="vuln-details__body">${blameHtml}</div></details>`,
           );
         }
-        if (hasCves) {
-          parts.push(
-            `<details class="vuln-details vuln-details--cve"><summary class="vuln-details__summary">Related CVEs <span class="vuln-details__hint">· NVD</span></summary><div class="vuln-details__body vuln-details__body--cve">${cvesListHtml}</div></details>`,
-          );
+        let cveEmptyMsg;
+        if (nvdLookupRan) {
+          cveEmptyMsg = `<p class="vuln-cve-empty">NVD lookup ran for this scan but returned no CVEs for this vulnerability category (keyword search). You can clear <code class="vuln-cve-code">NVD_PUBLISHED_WINDOW_DAYS</code> (or set <code class="vuln-cve-code">0</code>) for no publication window, or check <code class="vuln-cve-code">journalctl -u harnoldseye-api</code> during a scan for HTTP/API errors.</p>`;
+        } else {
+          cveEmptyMsg = `<p class="vuln-cve-empty">No CVE enrichment on this report. The scanner did not attach <code class="vuln-cve-code">related_cves</code> (NVD was off for that scan, or the report predates NVD). Set <code class="vuln-cve-code">NVD_CVE_LOOKUP=1</code> in <code class="vuln-cve-code">/etc/harnoldseye.env</code> (no quotes needed), run <code class="vuln-cve-code">sudo systemctl restart harnoldseye-api</code>, then scan again.</p>`;
         }
+        const cveBody = hasCveItems ? cvesListHtml : cveEmptyMsg;
+        parts.push(
+          `<details class="vuln-details vuln-details--cve"><summary class="vuln-details__summary">Related CVEs <span class="vuln-details__hint">· NVD</span></summary><div class="vuln-details__body vuln-details__body--cve">${cveBody}</div></details>`,
+        );
         parts.push("</div>");
         return parts.join("");
       }
@@ -1659,7 +2302,7 @@
                     ? `line ${start}`
                     : `lines ${start}-${end}`;
                 const typeBlock = typ
-                  ? `<div class="vuln-type">${escapeHtml(typ)}</div>`
+                  ? renderVulnTypeBlock(typ, f.type_explanation)
                   : "";
                 let callHint = "";
                 if (
@@ -1678,7 +2321,12 @@
                 }
                 const blame = renderCodeContextBlock(f, typ);
                 const cvesList = renderRelatedCvesListHtml(f);
-                const sections = renderFindingCollapsibleSections(blame, cvesList);
+                const nvdLookupRan = Array.isArray(f.related_cves);
+                const sections = renderFindingCollapsibleSections(
+                  blame,
+                  cvesList,
+                  nvdLookupRan,
+                );
                 return `<div class="vuln-finding"><div class="vuln-finding-head"><div class="vuln-file">${fileEsc}: ${linePart}</div>${typeBlock}${
                   callHint
                     ? `<div class="vuln-finding-meta">${callHint}</div>`
@@ -1715,6 +2363,50 @@
           `${totalRanges} vulnerabilities found`,
           100,
         );
+      }
+
+      async function downloadReportPdf() {
+        const btn = document.getElementById("reportPdfBtn");
+        const prevLabel = btn ? btn.textContent : "";
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "Preparing report…";
+        }
+        try {
+          const resp = await fetch(REPORT_PDF_URL, { cache: "no-store" });
+          if (!resp.ok) {
+            let detail = resp.statusText;
+            const t = await resp.text();
+            try {
+              const errBody = JSON.parse(t);
+              if (errBody && errBody.detail) detail = String(errBody.detail);
+            } catch (_) {
+              if (t) detail = t.slice(0, 200);
+            }
+            throw new Error(detail || `HTTP ${resp.status}`);
+          }
+          const blob = await resp.blob();
+          const cd = resp.headers.get("Content-Disposition");
+          let name = "harnoldseye-vulnerability-report.pdf";
+          const m = cd && cd.match(/filename="([^"]+)"/i);
+          if (m) name = m[1];
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error(err);
+          alert(err.message || "Report download failed.");
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = prevLabel;
+          }
+        }
       }
 
       async function loadVulnerabilities() {
@@ -1856,6 +2548,10 @@
           );
         }
       }
+
+      document
+        .getElementById("reportPdfBtn")
+        ?.addEventListener("click", downloadReportPdf);
 
       startScanFlow();
     </script>
