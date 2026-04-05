@@ -1881,7 +1881,7 @@
         statsObserver.observe(statsSectionEl);
       }
 
-      const BACKEND_BASE_URL = "http://66.42.120.203:8000";
+      const BACKEND_BASE_URL = window.location.origin;
       const SCAN_API_URL = `${BACKEND_BASE_URL}/api/scan`;
       const scanBtnDefaultHtml = `<svg viewBox="0 0 24 24">
           <path
