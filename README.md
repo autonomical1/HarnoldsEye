@@ -1,6 +1,6 @@
 # HarnoldsEye
 
-HarnoldsEye is a C/C++ vulnerability scanner with a web UI. A single **FastAPI** process serves both the REST API (under `/api/...`) and the static frontend (HTML/CSS/JS under `/`). In production it listens on **HTTP port 80**.
+HarnoldsEye is a C/C++ vulnerability scanner with a web UI. A single **FastAPI** process serves both the REST API (under `/api/...`) and the static frontend (HTML/CSS/JS under `/`). In production, it listens on **HTTP port 80**.
 
 ---
 
@@ -13,7 +13,6 @@ HarnoldsEye is a C/C++ vulnerability scanner with a web UI. A single **FastAPI**
 | **`/etc/harnoldseye.env`** | Environment variables for CORS, rate limits, Gemini, NVD, ML tuning (see below) |
 | **`harnoldseye-api.service`** | systemd unit that runs Uvicorn as an unprivileged user with permission to bind port 80 |
 
-There is no separate nginx or Node server in the default layout: **one service** brings everything up.
 
 ---
 
