@@ -1,5 +1,7 @@
 # HarnoldsEye
 
+![gallery](https://github.com/user-attachments/assets/02e33acf-2458-4936-8244-14bceac0b780)
+
 HarnoldsEye is a C/C++ vulnerability scanner with a web UI. A single **FastAPI** process serves both the REST API (under `/api/...`) and the static frontend (HTML/CSS/JS under `/`). In production, it listens on **HTTP port 80**.
 
 ---
