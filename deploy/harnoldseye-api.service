@@ -8,7 +8,10 @@ User=harnolds
 Group=harnolds
 WorkingDirectory=/opt/HarnoldsEye/backend/api
 EnvironmentFile=-/etc/harnoldseye.env
-ExecStart=/opt/HarnoldsEye/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+# Port 80 requires a privileged bind; keep running as non-root via ambient capability.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+ExecStart=/opt/HarnoldsEye/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 80
 Restart=on-failure
 RestartSec=5
 # Uvicorn waits for background scan tasks on SIGTERM; cap stop time so restarts don't hang.

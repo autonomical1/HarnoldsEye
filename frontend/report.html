@@ -1851,7 +1851,7 @@
       const params = new URLSearchParams(window.location.search);
       const repoUrl = params.get("repo");
 
-      const BACKEND_BASE_URL = "http://66.42.120.203:8000";
+      const BACKEND_BASE_URL = window.location.origin;
       const SCAN_URL = `${BACKEND_BASE_URL}/api/scan`;
       const STATUS_URL = `${BACKEND_BASE_URL}/api/scan/status`;
       const VULN_URL = `${BACKEND_BASE_URL}/api/vulnerabilities.json`;
@@ -2061,9 +2061,13 @@
           done != null &&
           files != null
         ) {
+          const progressBit =
+            done === 0 && tot > 0
+              ? "starting ML pass (first results appear after the first batch)…"
+              : `snippets ${done}/${tot}`;
           return (
             mlOnlyNote +
-            `Scoring ${tot} snippet window(s) from ${files} C/C++ file(s) · snippets ${done}/${tot}.`
+            `Scoring ${tot} snippet window(s) from ${files} C/C++ file(s) · ${progressBit}.`
           );
         }
         if (phase === "gemini_verify" && tot != null && done != null) {

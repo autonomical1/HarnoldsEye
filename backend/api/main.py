@@ -32,6 +32,31 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.requests import Request
 
+
+def _load_harnoldseye_env() -> None:
+    """
+    Load /etc/harnoldseye.env if present (deploy default; same as run_gemini_kilo_test.py).
+    Does not override variables already set in the process environment.
+    """
+    path = Path("/etc/harnoldseye.env")
+    if not path.is_file():
+        return
+    try:
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            val = val.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = val
+    except OSError:
+        pass
+
+
+_load_harnoldseye_env()
+
 # -----------------------------------------------------------------------------
 # Backend scanner (../model/backend.py)
 # -----------------------------------------------------------------------------
@@ -60,7 +85,7 @@ def _cors_allow_origins() -> List[str]:
     raw = os.environ.get("CORS_ORIGINS", "").strip()
     if raw:
         return [o.strip() for o in raw.split(",") if o.strip()]
-    return ["http://127.0.0.1:8000", "http://localhost:8000"]
+    return ["http://127.0.0.1", "http://localhost"]
 
 
 def _scan_rate_limit() -> str:
@@ -578,4 +603,4 @@ if _FRONTEND_DIR.is_dir():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=80)
